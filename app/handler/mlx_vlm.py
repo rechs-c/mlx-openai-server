@@ -460,7 +460,6 @@ class MLXVLMHandler:
                         # Initialize containers for this message
                         texts = []
                         images = []                 
-                        print(len(message.content))       
                         # Process each content item in the list
                         for item in message.content:
                             if item.type == "text":
