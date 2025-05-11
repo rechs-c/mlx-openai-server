@@ -8,7 +8,6 @@ from http import HTTPStatus
 
 from fastapi import HTTPException
 from ..core.image_processor import ImageProcessor
-from ..core.metrics import RequestMetrics
 from ..core.queue import RequestQueue
 from ..models.mlx_vlm import MLX_VLM
 from ..schemas.openai import ChatCompletionRequest, EmbeddingRequest
@@ -76,14 +75,7 @@ class MLXVLMHandler:
         # Create a unique request ID
         request_id = f"vision-{uuid.uuid4()}"
         
-        # Submit the vision request directly (not through queue for streaming)
         try:
-            # Start timing
-            # start_time = time.time()
-            # total_tokens = 0
-            # total_words = 0
-            # total_chars = 0
-
             chat_messages, image_paths, model_params = await self._prepare_vision_request(request)
             
             # Create a request data object
@@ -100,39 +92,15 @@ class MLXVLMHandler:
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
                 if chunk:
-                    chunk = chunk.text
-                    
-                    # # Update token count
-                    # if chunk:
-                    #     chunk_metrics = RequestMetrics.estimate_tokens(chunk)
-                    #     total_tokens += chunk_metrics["estimated_tokens"]
-                    #     total_words += chunk_metrics["word_count"]
-                    #     total_chars += chunk_metrics["char_count"]
-                    
+                    chunk = chunk.texta
                     yield chunk
-            
-            # Calculate and log TPS statistics
-            # elapsed_time = time.time() - start_time
-            # tps = total_tokens / elapsed_time if elapsed_time > 0 else 0
-            
-            # # Update metrics
-            # metrics = {
-            #     "token_count": total_tokens,
-            #     "word_count": total_words,
-            #     "char_count": total_chars,
-            #     "elapsed_time": elapsed_time,
-            #     "tps": tps
-            # }
-            # self.metrics.update("vision_stream", metrics)
         
         except asyncio.QueueFull:
-            # self.metrics.increment_error_count()
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
 
         except Exception as e:
-            # self.metrics.increment_error_count()
             logger.error(f"Error in vision stream generation for request {request_id}: {str(e)}")
             content = create_error_response(f"Failed to generate vision stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
@@ -162,25 +130,8 @@ class MLXVLMHandler:
                 "stream": False,
                 **model_params
             }
-            
-            # Start timing
-            start_time = time.time()
-            
-            # Submit to the vision queue and wait for result
+        
             response = await self.request_queue.submit(request_id, request_data)
-            
-            # Calculate and log TPS statistics
-            elapsed_time = time.time() - start_time
-            metrics = RequestMetrics.estimate_tokens(response)
-            tps = metrics["estimated_tokens"] / elapsed_time if elapsed_time > 0 else 0
-            
-            # Update metrics
-            metrics.update({
-                "elapsed_time": elapsed_time,
-                "tps": tps,
-                "token_count": metrics["estimated_tokens"]
-            })
-            # self.metrics.update("vision", metrics)
             
             return response
             
@@ -222,12 +173,10 @@ class MLXVLMHandler:
                     yield chunk.text
             
         except asyncio.QueueFull:
-            # self.metrics.increment_error_count()
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            # self.metrics.increment_error_count()
             logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
             content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
@@ -257,34 +206,16 @@ class MLXVLMHandler:
                 **model_params
             }
             
-            # Start timing
-            # start_time = time.time()
-            
             # Submit to the vision queue (reusing the same queue for text requests)
             response = await self.request_queue.submit(request_id, request_data)
-            
-            # Calculate and log TPS statistics
-            # elapsed_time = time.time() - start_time
-            # metrics = RequestMetrics.estimate_tokens(response)
-            # tps = metrics["estimated_tokens"] / elapsed_time if elapsed_time > 0 else 0
-            
-            # Update metrics
-            # metrics.update({
-            #     "elapsed_time": elapsed_time,
-            #     "tps": tps,
-            #     "token_count": metrics["estimated_tokens"]
-            # })
-            # self.metrics.update("text", metrics)
-            
+
             return response
             
         except asyncio.QueueFull:
-            # self.metrics.increment_error_count()
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            # self.metrics.increment_error_count()
             logger.error(f"Error in text response generation: {str(e)}")
             content = create_error_response(f"Failed to generate text response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
@@ -528,8 +459,7 @@ class MLXVLMHandler:
                     if isinstance(message.content, list):
                         # Initialize containers for this message
                         texts = []
-                        images = []
-                        
+                        images = []                 
                         # Process each content item in the list
                         for item in message.content:
                             if item.type == "text":
@@ -544,7 +474,7 @@ class MLXVLMHandler:
                                     # Validate URL
                                     self._validate_image_url(url)
                                     images.append(url)
-                        
+
                         # Add collected images to global list
                         if images:
                             image_urls.extend(images)
@@ -553,13 +483,12 @@ class MLXVLMHandler:
                             if len(images) > 4:
                                 content = create_error_response("Too many images in a single message (max: 4)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                                 raise HTTPException(status_code=400, detail=content)
-
+                            
                         # Add text content if available, otherwise raise an error
                         if texts:
                             chat_messages.append({"role": "user", "content": " ".join(texts)})
                         else:
-                            content = create_error_response("Message contains no valid content", "invalid_request_error", HTTPStatus.BAD_REQUEST)
-                            raise HTTPException(status_code=400, detail=content)
+                           chat_messages.append({"role": "user", "content": ""})
                     else:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
