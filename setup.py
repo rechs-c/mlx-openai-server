@@ -3,11 +3,11 @@ from app import __version__
 
 
 setup(
-    name="mlx-server",
+    name="mlx-openai-server",
     version=__version__,
     description="OpenAI-compatible server for MLX models",
     author="Huy Vuong",
-    packages=find_packages(),
+    packages=find_packages(), 
     install_requires=[
         "mlx-vlm==0.1.25",
         "mlx-lm==0.24.0",
