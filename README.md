@@ -1,4 +1,8 @@
-# mlx-server-OAI-compat
+# mlx-openai-server
+
+> **Breaking Change:**
+> - The package and CLI have been renamed from `mlx-server` to `mlx-openai-server` for PyPI compatibility and uniqueness.
+> - Please update your usage and scripts accordingly.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
@@ -49,7 +53,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
    ```bash
    python3 -m venv oai-compat-server
    source oai-compat-server/bin/activate
-   pip install git+https://github.com/cubist38/mlx-server-OAI-compat.git
+   pip install git+https://github.com/cubist38/mlx-openai-server.git
    ```
 2. **Run the server** (replace `<path-to-mlx-model>`):
    ```bash
@@ -122,12 +126,15 @@ Follow these steps to set up the MLX-powered server:
 
 3. Install the package:
     ```bash
-    # Option 1: Install directly from GitHub
-    pip install git+https://github.com/cubist38/mlx-server-OAI-compat.git
+    # Option 1: Install from PyPI
+    pip install mlx-openai-server
+
+    # Option 2: Install directly from GitHub
+    pip install git+https://github.com/cubist38/mlx-openai-server.git
     
-    # Option 2: Clone and install in development mode
-    git clone https://github.com/cubist38/mlx-server-OAI-compat.git
-    cd mlx-server-OAI-compat
+    # Option 3: Clone and install in development mode
+    git clone https://github.com/cubist38/mlx-openai-server.git
+    cd mlx-openai-server
     pip install -e .
     ```
 
@@ -192,14 +199,14 @@ python -m app.main \
 
 CLI commands:
 ```bash
-mlx-server --version
-mlx-server --help
-mlx-server launch --help
+mlx-openai-server --version
+mlx-openai-server --help
+mlx-openai-server launch --help
 ```
 
 To launch the server:
 ```bash
-mlx-server launch --model-path <path-to-mlx-model> --model-type <lm|vlm> --port 8000
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|vlm> --port 8000
 ```
 
 ### Using the API

@@ -41,7 +41,7 @@ configure_logging()
 @click.version_option(
     version=__version__, 
     message="""
-✨ %(prog)s - OpenAI Compatible API Server ✨
+✨ %(prog)s - OpenAI Compatible API Server for MLX models ✨
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🚀 Version: %(version)s
 """

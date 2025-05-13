@@ -27,7 +27,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "mlx-server=app.cli:cli",
+            "mlx-openai-server=app.cli:cli",
         ],
     },
     python_requires=">=3.11",
