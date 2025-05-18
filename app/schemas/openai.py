@@ -241,3 +241,19 @@ class EmbeddingResponse(BaseModel):
     object: str = "list"
     data: List[Embedding]
     model: str
+
+class Model(BaseModel):
+    """
+    Represents a model in the models list response.
+    """
+    id: str
+    object: str = "model"
+    created: int
+    owned_by: str = "openai"
+
+class ModelsResponse(BaseModel):
+    """
+    Represents the response for the models list endpoint.
+    """
+    object: str = "list"
+    data: List[Model]

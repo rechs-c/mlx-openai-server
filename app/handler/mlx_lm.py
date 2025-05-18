@@ -33,6 +33,7 @@ class MLXLMHandler:
         self.model = MLX_LM(model_path)
         self.model_type = self.model.get_model_type()
         self.tool_parser, self.thinking_parser = get_parser(self.model_type)
+        self.model_created = int(time.time())  # Store creation time when model is loaded
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
@@ -41,6 +42,17 @@ class MLXLMHandler:
         # self.metrics = RequestMetrics()
         
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
+    
+    def get_models(self) -> List[Dict[str, Any]]:
+        """
+        Get list of available models with their metadata.
+        """
+        return [{
+            "id": self.model_path,
+            "object": "model",
+            "created": self.model_created,
+            "owned_by": "local"
+        }]
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""

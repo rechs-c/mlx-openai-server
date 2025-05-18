@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from app.schemas.openai import (
     EmbeddingRequest, Embedding, EmbeddingResponse, 
     ChatCompletionRequest, ChatCompletionChunk, Choice, Message, FunctionCall, StreamingChoice,
-    ChatCompletionResponse, ChatCompletionMessageToolCall, ChoiceDeltaToolCall, ChoiceDeltaFunctionCall, Delta
+    ChatCompletionResponse, ChatCompletionMessageToolCall, ChoiceDeltaToolCall, ChoiceDeltaFunctionCall, Delta,
+    Model, ModelsResponse
 )
 from app.utils.errors import create_error_response
 from app.handler.mlx_lm import MLXLMHandler
@@ -53,6 +54,14 @@ async def queue_stats(raw_request: Request):
         logger.error(f"Failed to get queue stats: {str(e)}")
         return JSONResponse(content= create_error_response("Failed to get queue stats", "server_error", 500), status_code=500)
         
+@router.get("/v1/models")
+async def models(raw_request: Request):
+    """
+    Get list of available models.
+    """
+    handler = raw_request.app.state.handler
+    models_data = handler.get_models()
+    return ModelsResponse(data=[Model(**model) for model in models_data])
 
 @router.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
@@ -62,10 +71,8 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     try:
-        
         # Check if this is a vision request
         is_vision_request = request.is_vision_request()
-        
         # If it's a vision request but the handler is MLXLMHandler (text-only), reject it
         if is_vision_request and isinstance(handler, MLXLMHandler):
             return JSONResponse(
