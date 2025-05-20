@@ -104,7 +104,7 @@ class MLXVLMHandler:
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
                 if chunk:
-                    chunk = chunk.texta
+                    chunk = chunk.text
                     yield chunk
         
         except asyncio.QueueFull:
