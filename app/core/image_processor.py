@@ -147,8 +147,15 @@ class ImageProcessor:
         except Exception as e:
             logger.warning(f"Exception cleaning up temp_dir: {str(e)}")
 
+    async def __aenter__(self):
+        """Enter the async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        """Exit the async context manager and perform cleanup."""
+        await self.cleanup()
+
     def __del__(self):
-        try:
-            self.cleanup()
-        except Exception as e:
-            logger.warning(f"Exception during __del__ cleanup: {str(e)}")
+        # Async cleanup cannot be reliably performed in __del__
+        # Please use 'async with ImageProcessor()' or call 'await cleanup()' explicitly.
+        pass

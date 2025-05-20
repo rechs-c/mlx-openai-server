@@ -34,6 +34,7 @@ class MLXVLMHandler:
         self.model_path = model_path
         self.model = MLX_VLM(model_path)
         self.image_processor = ImageProcessor(max_workers)
+        self.model_created = int(time.time())  # Store creation time when model is loaded
         
         # Initialize request queue for vision and text tasks
         # We use the same queue for both vision and text tasks for simplicity
@@ -44,6 +45,17 @@ class MLXVLMHandler:
         # self.metrics = RequestMetrics()
         
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
+
+    def get_models(self) -> List[Dict[str, Any]]:
+        """
+        Get list of available models with their metadata.
+        """
+        return [{
+            "id": self.model_path,
+            "object": "model",
+            "created": self.model_created,
+            "owned_by": "local"
+        }]
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""
@@ -92,7 +104,7 @@ class MLXVLMHandler:
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
                 if chunk:
-                    chunk = chunk.texta
+                    chunk = chunk.text
                     yield chunk
         
         except asyncio.QueueFull:
