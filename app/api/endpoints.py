@@ -168,7 +168,7 @@ async def handle_stream_response(generator, model: str):
                     response_chunk = create_response_chunk(chunk, model)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
-                    finish_reason = "function_call"
+                    finish_reason = "tool_calls"
                     function = {
                         "index": index,
                         "name": chunk["name"],
