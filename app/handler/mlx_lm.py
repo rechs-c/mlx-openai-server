@@ -37,10 +37,7 @@ class MLXLMHandler:
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
-        
-        # Initialize metrics tracking
-        # self.metrics = RequestMetrics()
-        
+
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
     
     def get_models(self) -> List[Dict[str, Any]]:
@@ -93,7 +90,8 @@ class MLXLMHandler:
             response_generator = await self.request_queue.submit(request_id, request_data)
             
             buffer = ""
-            if model_params.get("tools", None) and self.tool_parser:
+            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
+            if tools and self.tool_parser:
                 for chunk in response_generator:
                     if chunk:
                         chunk = chunk.text
@@ -135,19 +133,14 @@ class MLXLMHandler:
                 **model_params
             }
             response = await self.request_queue.submit(request_id, request_data)
-
-            if model_params.get("tools", None) and self.tool_parser:
-                thinking_content = self.thinking_parser.parse(response)
-                if thinking_content:
-                    response = response[len(thinking_content):]
-                parsed_response = self.tool_parser.parse(response)
-                if isinstance(parsed_response, list):
+            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
+            if tools and self.tool_parser:
+                parsed_response, response = self.tool_parser.parse(response)
+                if parsed_response:
                     return {
-                        "content": thinking_content,
+                        "content": response,
                         "tool_calls": parsed_response
                     }
-                if thinking_content:
-                    response = thinking_content + response
             return response
             
         except asyncio.QueueFull:
@@ -213,9 +206,6 @@ class MLXLMHandler:
             model_params.pop("messages", None)
             model_params.pop("stream", None)
             
-            # Start timing
-            start_time = time.time()
-            
             # Call the model
             response = self.model(
                 messages=messages,
@@ -240,7 +230,6 @@ class MLXLMHandler:
         
         return {
             "queue_stats": queue_stats,
-            # "metrics": self.metrics.get_summary()
         }
         
     async def cleanup(self):
@@ -276,9 +265,10 @@ class MLXLMHandler:
             frequency_penalty = request.frequency_penalty or 0.0
             presence_penalty = request.presence_penalty or 0.0
             max_tokens = request.max_tokens or 1024
-            enable_thinking = request.enable_thinking or False
             tools = request.tools or None
-            tool_choice = request.tool_choice or None
+            chat_template_kwargs = request.chat_template_kwargs
+            if tools:
+                chat_template_kwargs.tools = tools
 
             model_params = {
                 "temperature": temperature,
@@ -287,8 +277,7 @@ class MLXLMHandler:
                 "presence_penalty": presence_penalty,
                 "max_tokens": max_tokens,
                 "tools": tools,
-                "enable_thinking": enable_thinking,
-                "tool_choice": tool_choice
+                "chat_template_kwargs": chat_template_kwargs.model_dump()
             }
             
             # Format chat messages

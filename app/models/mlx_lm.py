@@ -7,8 +7,10 @@ from mlx_lm.generate import (
 from mlx_lm.sample_utils import make_sampler
 from typing import List, Dict, Union, Generator, Optional, Tuple
 
-DEFAULT_TEMPERATURE = 0.0
-DEFAULT_TOP_P = 1.0
+DEFAULT_TEMPERATURE = 0.7
+DEFAULT_TOP_P = 0.95
+DEFAULT_TOP_K = 20
+DEFAULT_MIN_P = 0.0
 DEFAULT_SEED = 0
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_BATCH_SIZE = 32
@@ -126,18 +128,18 @@ class MLX_LM:
                 - max_tokens: Maximum number of tokens to generate (default: 256)
         """
         # Set default parameters if not provided
-        temperature = kwargs.get("temperature", DEFAULT_TEMPERATURE)
-        top_p = kwargs.get("top_p", DEFAULT_TOP_P)
         seed = kwargs.get("seed", DEFAULT_SEED)
         max_tokens = kwargs.get("max_tokens", DEFAULT_MAX_TOKENS)
+        chat_template_kwargs = kwargs.get("chat_template_kwargs", {})
 
-        mx.random.seed(seed)
-
-        chat_template_kwargs = {
-            "add_generation_prompt": True,
-            "tools": kwargs.get("tools", None),
-            "enable_thinking": kwargs.get("enable_thinking", True)
+        sampler_kwargs = {
+            "temp": kwargs.get("temperature", DEFAULT_TEMPERATURE),
+            "top_p": kwargs.get("top_p", DEFAULT_TOP_P),
+            "top_k": kwargs.get("top_k", DEFAULT_TOP_K),
+            "min_p": kwargs.get("min_p", DEFAULT_MIN_P)
         }
+        
+        mx.random.seed(seed)
 
         # Prepare input tokens
         prompt = self.tokenizer.apply_chat_template(
@@ -145,7 +147,9 @@ class MLX_LM:
             **chat_template_kwargs
         )
         
-        sampler = make_sampler(temperature, top_p)
+        sampler = make_sampler(
+           **sampler_kwargs
+        )
         
         if not stream:
             return generate(
