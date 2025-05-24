@@ -215,7 +215,6 @@ class MLXVLMHandler:
             
             # Submit to the vision queue (reusing the same queue for text requests)
             response = await self.request_queue.submit(request_id, request_data)
-
             return response
             
         except asyncio.QueueFull:
@@ -497,7 +496,6 @@ class MLXVLMHandler:
             frequency_penalty = request.frequency_penalty or 0.0
             presence_penalty = request.presence_penalty or 0.0
             max_tokens = request.max_tokens or 1024
-            enable_thinking = request.enable_thinking or False
             tools = request.tools or None
             tool_choice = request.tool_choice or None
             
@@ -508,7 +506,6 @@ class MLXVLMHandler:
                 "presence_penalty": presence_penalty,
                 "max_tokens": max_tokens,
                 "tools": tools,
-                "enable_thinking": enable_thinking,
                 "tool_choice": tool_choice
             }
             
