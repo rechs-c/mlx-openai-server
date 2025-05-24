@@ -41,9 +41,6 @@ class MLXVLMHandler:
         # and to ensure we don't overload the model with too many concurrent requests
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
         
-        # Initialize metrics tracking
-        # self.metrics = RequestMetrics()
-        
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
 
     def get_models(self) -> List[Dict[str, Any]]:
@@ -148,12 +145,10 @@ class MLXVLMHandler:
             return response
             
         except asyncio.QueueFull:
-            # self.metrics.increment_error_count()
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            # self.metrics.increment_error_count()
             logger.error(f"Error in vision response generation: {str(e)}")
             content = create_error_response(f"Failed to generate vision response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
@@ -333,19 +328,7 @@ class MLXVLMHandler:
                 stream=stream,
                 **model_params
             )
-            
-            # # End timing and calculate metrics
-            # end_time = time.time()
-            # elapsed_time = end_time - start_time
-            
-            # # Calculate tokens in the response
-            # # For simple text responses, approximating token count as words/1.3
-            # if isinstance(response, str):
-            #     metrics = RequestMetrics.estimate_tokens(response)
-            #     token_count = metrics["estimated_tokens"]
-            #     tps = token_count / elapsed_time if elapsed_time > 0 else 0
-            #     logger.info(f"Request completed: {token_count} tokens in {elapsed_time:.2f}s ({tps:.2f} tokens/sec)")
-            
+
             return response
             
         except Exception as e:
@@ -363,7 +346,6 @@ class MLXVLMHandler:
         
         return {
             "queue_stats": queue_stats,
-            # "metrics": self.metrics.get_summary()
         }
 
     async def _prepare_text_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, str]], Dict[str, Any]]:
