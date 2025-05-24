@@ -74,13 +74,14 @@ class MLX_VLM:
         
         if not stream:
             # Non-streaming mode: return complete response
-            return generate(
+            text, _ = generate(
                 self.model,
                 self.processor,
                 prompt,
                 image=images,
                 **model_params
             )
+            return text
         else:
             # Streaming mode: return generator of chunks
             return stream_generate(

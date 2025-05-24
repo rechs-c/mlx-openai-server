@@ -14,72 +14,71 @@ class Config:
     EMBEDDING_MODEL = "text-embedding-ada-002"  # Model used for generating embeddings
 
 class ErrorResponse(BaseModel):
-    object: str = "error"
-    message: str
-    type: str
-    param: Optional[str] = None
-    code: int
+    object: str = Field("error", description="The object type, always 'error'.")
+    message: str = Field(..., description="The error message.")
+    type: str = Field(..., description="The type of error.")
+    param: Optional[str] = Field(None, description="The parameter related to the error, if any.")
+    code: int = Field(..., description="The error code.")
 
 # Common models used in both streaming and non-streaming contexts
 class ImageUrl(BaseModel):
     """
     Represents an image URL in a message.
     """
-    url: str
+    url: str = Field(..., description="The image URL.")
 
 class VisionContentItem(BaseModel):
     """
     Represents a single content item in a message (text or image).
     """
-    type: str
-    text: Optional[str] = None
-    image_url: Optional[ImageUrl] = None
+    type: str = Field(..., description="The type of content, e.g., 'text' or 'image_url'.")
+    text: Optional[str] = Field(None, description="The text content, if type is 'text'.")
+    image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
 
 class FunctionCall(BaseModel):
     """
     Represents a function call in a message.
     """
-    arguments: str
-    name: str
+    arguments: str = Field(..., description="The arguments for the function call.")
+    name: str = Field(..., description="The name of the function to call.")
 
 class ChatCompletionMessageToolCall(BaseModel):
     """
     Represents a tool call in a message.
     """
-    id: str
-    function: FunctionCall
-    type: Literal["function"]
+    id: str = Field(..., description="The ID of the tool call.")
+    function: FunctionCall = Field(..., description="The function call details.")
+    type: Literal["function"] = Field(..., description="The type of tool call, always 'function'.")
 
 class Message(BaseModel):
     """
     Represents a message in a chat completion.
     """
-    content: Union[str, List[VisionContentItem]]
-    refusal: Optional[str] = None
-    role: Literal["system", "user", "assistant", "tool"]
-    function_call: Optional[FunctionCall] = None
-    tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
+    content: Union[str, List[VisionContentItem]] = Field(..., description="The content of the message, either text or a list of vision content items.")
+    refusal: Optional[str] = Field(None, description="The refusal reason, if any.")
+    role: Literal["system", "user", "assistant", "tool"] = Field(..., description="The role of the message sender.")
+    function_call: Optional[FunctionCall] = Field(None, description="The function call, if any.")
+    tool_calls: Optional[List[ChatCompletionMessageToolCall]] = Field(None, description="List of tool calls, if any.")
 
 # Common request base for both streaming and non-streaming
 class ChatCompletionRequestBase(BaseModel):
     """
     Base model for chat completion requests.
     """
-    model: str = Config.TEXT_MODEL
-    messages: List[Message]
-    tools: Optional[List[Dict[str, Any]]] = None
-    tool_choice: Optional[Union[str, Dict[str, Any]]] = None
-    max_tokens: Optional[int] = None
-    temperature: Optional[float] = 0.7
-    top_p: Optional[float] = 1.0
-    frequency_penalty: Optional[float] = 0.0
-    presence_penalty: Optional[float] = 0.0
-    stop: Optional[List[str]] = None
-    n: Optional[int] = 1
-    response_format: Optional[Dict[str, str]] = None
-    seed: Optional[int] = None
-    user: Optional[str] = None
-    enable_thinking: Optional[bool] = False
+    model: str = Field(Config.TEXT_MODEL, description="The model to use for completion.")
+    messages: List[Message] = Field(..., description="The list of messages in the conversation.")
+    tools: Optional[List[Dict[str, Any]]] = Field(None, description="List of tools available for the request.")
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Tool choice for the request.")
+    max_tokens: Optional[int] = Field(None, description="The maximum number of tokens to generate.")
+    temperature: Optional[float] = Field(0.7, description="Sampling temperature.")
+    top_p: Optional[float] = Field(1.0, description="Nucleus sampling probability.")
+    frequency_penalty: Optional[float] = Field(0.0, description="Frequency penalty for token generation.")
+    presence_penalty: Optional[float] = Field(0.0, description="Presence penalty for token generation.")
+    stop: Optional[List[str]] = Field(None, description="List of stop sequences.")
+    n: Optional[int] = Field(1, description="Number of completions to generate.")
+    response_format: Optional[Dict[str, str]] = Field(None, description="Format for the response.")
+    seed: Optional[int] = Field(None, description="Random seed for reproducibility.")
+    user: Optional[str] = Field(None, description="User identifier.")
 
     @validator("messages")
     def check_messages_not_empty(cls, v):
@@ -140,120 +139,123 @@ class ChatCompletionRequestBase(BaseModel):
         
         logger.debug(f"No images detected, treating as text-only request")
         return False
+    
+class ChatTemplateKwargs(BaseModel):
+    """
+    Represents the arguments for a chat template.
+    """
+    enable_thinking: bool = Field(False, description="Whether to enable thinking mode.")
+    tools: Optional[List[Dict[str, Any]]] = Field(None, description="List of tools to use in the request.")
+    add_generation_prompt: bool = Field(True, description="Whether to add a generation prompt to the request.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):
     """
     Model for non-streaming chat completion requests.
     """
-    stream: bool = False
+    stream: bool = Field(False, description="Whether to stream the response.")
+    chat_template_kwargs: ChatTemplateKwargs = Field(ChatTemplateKwargs(), description="Arguments for the chat template.")
 
 class Choice(BaseModel):
     """
     Represents a choice in a chat completion response.
     """
-    finish_reason: Literal["stop", "length", "tool_calls", "content_filter", "function_call"]
-    index: int
-    message: Message
+    finish_reason: Literal["stop", "length", "tool_calls", "content_filter", "function_call"] = Field(..., description="The reason for the choice.")
+    index: int = Field(..., description="The index of the choice.")
+    message: Message = Field(..., description="The message of the choice.")
 
 class ChatCompletionResponse(BaseModel):
     """
     Represents a complete chat completion response.
     """
-    id: str
-    object: Literal["chat.completion"]
-    created: int
-    model: str
-    choices: List[Choice]
+    id: str = Field(..., description="The response ID.")
+    object: Literal["chat.completion"] = Field(..., description="The object type, always 'chat.completion'.")
+    created: int = Field(..., description="The creation timestamp.")
+    model: str = Field(..., description="The model used for completion.")
+    choices: List[Choice] = Field(..., description="List of choices in the response.")
 
-# Streaming request and response
-class StreamChatCompletionRequest(ChatCompletionRequestBase):
-    """
-    Model for streaming chat completion requests.
-    """
-    stream: bool = True
 
 class ChoiceDeltaFunctionCall(BaseModel):
     """
     Represents a function call delta in a streaming response.
     """
-    arguments: Optional[str] = None
-    name: Optional[str] = None
+    arguments: Optional[str] = Field(None, description="Arguments for the function call delta.")
+    name: Optional[str] = Field(None, description="Name of the function in the delta.")
 
 class ChoiceDeltaToolCall(BaseModel):
     """
     Represents a tool call delta in a streaming response.
     """
-    index: Optional[int] = None
-    id: Optional[str] = None
-    function: Optional[ChoiceDeltaFunctionCall] = None
-    type: Optional[str] = None
+    index: Optional[int] = Field(None, description="Index of the tool call delta.")
+    id: Optional[str] = Field(None, description="ID of the tool call delta.")
+    function: Optional[ChoiceDeltaFunctionCall] = Field(None, description="Function call details in the delta.")
+    type: Optional[str] = Field(None, description="Type of the tool call delta.")
 
 class Delta(BaseModel):
     """
     Represents a delta in a streaming response.
     """
-    content: Optional[str] = None
-    function_call: Optional[ChoiceDeltaFunctionCall] = None
-    refusal: Optional[str] = None
-    role: Optional[Literal["system", "user", "assistant", "tool"]] = None
-    tool_calls: Optional[List[ChoiceDeltaToolCall]] = None
+    content: Optional[str] = Field(None, description="Content of the delta.")
+    function_call: Optional[ChoiceDeltaFunctionCall] = Field(None, description="Function call delta, if any.")
+    refusal: Optional[str] = Field(None, description="Refusal reason, if any.")
+    role: Optional[Literal["system", "user", "assistant", "tool"]] = Field(None, description="Role in the delta.")
+    tool_calls: Optional[List[ChoiceDeltaToolCall]] = Field(None, description="List of tool call deltas, if any.")
 
 class StreamingChoice(BaseModel):
     """
     Represents a choice in a streaming response.
     """
-    delta: Delta
-    finish_reason: Optional[Literal["stop", "length", "tool_calls", "content_filter", "function_call"]] = None
-    index: int
+    delta: Delta = Field(..., description="The delta for this streaming choice.")
+    finish_reason: Optional[Literal["stop", "length", "tool_calls", "content_filter", "function_call"]] = Field(None, description="The reason for finishing, if any.")
+    index: int = Field(..., description="The index of the streaming choice.")
     
 class ChatCompletionChunk(BaseModel):
     """
     Represents a chunk in a streaming chat completion response.
     """
-    id: str
-    choices: List[StreamingChoice]
-    created: int
-    model: str
-    object: Literal["chat.completion.chunk"]
+    id: str = Field(..., description="The chunk ID.")
+    choices: List[StreamingChoice] = Field(..., description="List of streaming choices in the chunk.")
+    created: int = Field(..., description="The creation timestamp of the chunk.")
+    model: str = Field(..., description="The model used for the chunk.")
+    object: Literal["chat.completion.chunk"] = Field(..., description="The object type, always 'chat.completion.chunk'.")
 
 # Embedding models
 class EmbeddingRequest(BaseModel):
     """
     Model for embedding requests.
     """
-    model: str = Config.EMBEDDING_MODEL
-    input: List[str] = Field(..., description="List of text inputs for embedding")
-    image_url: Optional[str] = Field(default=None, description="Image URL to embed")
+    model: str = Field(Config.EMBEDDING_MODEL, description="The embedding model to use.")
+    input: List[str] = Field(..., description="List of text inputs for embedding.")
+    image_url: Optional[str] = Field(default=None, description="Image URL to embed.")
 
 class Embedding(BaseModel):
     """
     Represents an embedding object in an embedding response.
     """
-    embedding: List[float] = Field(..., description="The embedding vector")
-    index: int = Field(..., description="The index of the embedding in the list")
-    object: str = Field(default="embedding", description="The object type")
+    embedding: List[float] = Field(..., description="The embedding vector.")
+    index: int = Field(..., description="The index of the embedding in the list.")
+    object: str = Field(default="embedding", description="The object type, always 'embedding'.")
 
 class EmbeddingResponse(BaseModel):
     """
     Represents an embedding response.
     """
-    object: str = "list"
-    data: List[Embedding]
-    model: str
+    object: str = Field("list", description="The object type, always 'list'.")
+    data: List[Embedding] = Field(..., description="List of embedding objects.")
+    model: str = Field(..., description="The model used for embedding.")
 
 class Model(BaseModel):
     """
     Represents a model in the models list response.
     """
-    id: str
-    object: str = "model"
-    created: int
-    owned_by: str = "openai"
+    id: str = Field(..., description="The model ID.")
+    object: str = Field("model", description="The object type, always 'model'.")
+    created: int = Field(..., description="The creation timestamp.")
+    owned_by: str = Field("openai", description="The owner of the model.")
 
 class ModelsResponse(BaseModel):
     """
     Represents the response for the models list endpoint.
     """
-    object: str = "list"
-    data: List[Model]
+    object: str = Field("list", description="The object type, always 'list'.")
+    data: List[Model] = Field(..., description="List of models.")

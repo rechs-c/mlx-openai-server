@@ -66,6 +66,7 @@ async def models(raw_request: Request):
 @router.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
+
     handler = raw_request.app.state.handler
     if handler is None:
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
@@ -168,7 +169,7 @@ async def handle_stream_response(generator, model: str):
                     response_chunk = create_response_chunk(chunk, model)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
-                    finish_reason = "function_call"
+                    finish_reason = "tool_calls"
                     function = {
                         "index": index,
                         "name": chunk["name"],
@@ -243,6 +244,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
                 finish_reason="stop"
             )]
         )
+    
     content = response.get("content", None)
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
