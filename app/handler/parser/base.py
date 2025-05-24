@@ -39,11 +39,11 @@ class BaseToolParser:
     
     def parse(self, content: str) -> Tuple[List[Dict[str, Any]], str]:
         if self.tool_open not in content:
-            return content
+            return None, content
         res = []
         while True:
             start_tool = content.find(self.tool_open)
-            end_tool = content.find(self.tool_close, len(self.tool_open))
+            end_tool = content.find(self.tool_close, start_tool + len(self.tool_open))
             if end_tool == -1:
                 break
             else:
@@ -55,8 +55,8 @@ class BaseToolParser:
                 except json.JSONDecodeError:
                     print("Error parsing tool call: ", tool_content)
                     break
-                content = content[end_tool + len(self.tool_close):]
-        return res
+                content = content[:start_tool] + content[end_tool + len(self.tool_close):]
+        return res, content
     
     def parse_stream(self, chunk: str, buffer: str = ""):
         if self.tool_open not in buffer:
