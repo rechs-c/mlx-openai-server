@@ -11,6 +11,7 @@ setup(
     install_requires=[
         "mlx-vlm==0.1.26",
         "mlx-lm==0.24.1",
+        "torchvision",
         "fastapi",
         "uvicorn",
         "Pillow",
