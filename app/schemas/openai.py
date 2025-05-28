@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
-from typing_extensions import Literal
 
 from pydantic import BaseModel, Field, validator
+from typing_extensions import Literal
 
 
 # Configuration
@@ -58,6 +58,7 @@ class Message(BaseModel):
     refusal: Optional[str] = Field(None, description="The refusal reason, if any.")
     role: Literal["system", "user", "assistant", "tool"] = Field(..., description="The role of the message sender.")
     function_call: Optional[FunctionCall] = Field(None, description="The function call, if any.")
+    reasoning_content: Optional[str] = Field(None, description="The reasoning content, if any.")
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = Field(None, description="List of tool calls, if any.")
 
 # Common request base for both streaming and non-streaming

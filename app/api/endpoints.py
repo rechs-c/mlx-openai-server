@@ -246,6 +246,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         )
     
     content = response.get("content", None)
+    reasoning_content = response.get("reasoning_content", None)
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
     for tool_call in tool_calls:
@@ -267,7 +268,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         model=model,
         choices=[Choice(
             index=0,
-            message=Message(role="assistant", content=content, tool_calls=tool_call_responses),
+            message=Message(role="assistant", content=content, reasoning_content=reasoning_content, tool_calls=tool_call_responses),
             finish_reason="function_call"
         )]
     )

@@ -10,10 +10,11 @@ class BaseThinkingParser:
 
     def parse(self, content: str) -> str:
         if self.thinking_open in content:
+            start_thinking = content.find(self.thinking_open)
             end_thinking = content.find(self.thinking_close)
             if end_thinking != -1:
-                return content[:end_thinking + len(self.thinking_close)]
-        return None
+                return content[start_thinking + len(self.thinking_open):end_thinking].strip(), content[end_thinking + len(self.thinking_close):].strip()
+        return None, content
     
     def parse_stream(self, chunk: str) -> Tuple[str, bool]:
         if chunk == self.thinking_open:
@@ -67,7 +68,7 @@ class BaseToolParser:
                     print("Error parsing tool call: ", tool_content)
                     break
                 content = content[:start_tool] + content[end_tool + len(self.tool_close):]
-        return res, content
+        return res, content.strip()
     
     def parse_stream(self, chunk: str):
         if self.state == ParseState.NORMAL:

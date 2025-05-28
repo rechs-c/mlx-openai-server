@@ -135,17 +135,27 @@ class MLXLMHandler:
             }
             response = await self.request_queue.submit(request_id, request_data)
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            if tools:
-                tool_parser, _ = get_parser(self.model_type)
-                if not tool_parser:
-                    return response
-                parsed_response, response = tool_parser.parse(response)
-                if parsed_response:
-                    return {
-                        "content": response,
-                        "tool_calls": parsed_response
-                    }
-            return response
+            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+            if not tools and not enable_thinking:
+                return response
+
+            tool_parser, thinking_parser = get_parser(self.model_type)
+            if not tool_parser and not thinking_parser:
+                return response
+            parsed_response = {
+                "reasoning_content": None,
+                "tool_calls": None,
+                "content": None
+            }
+            if enable_thinking and thinking_parser:
+                thinking_response, response = thinking_parser.parse(response)
+                parsed_response["reasoning_content"] = thinking_response
+            if tools and tool_parser:
+                tool_response, response = tool_parser.parse(response)
+                parsed_response["tool_calls"] = tool_response
+            parsed_response["content"] = response
+            
+            return parsed_response
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
