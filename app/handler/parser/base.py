@@ -1,6 +1,7 @@
 import json
 import uuid
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
+
 
 class BaseThinkingParser:
     def __init__(self, thinking_open: str, thinking_close: str):
@@ -14,22 +15,32 @@ class BaseThinkingParser:
                 return content[:end_thinking + len(self.thinking_close)]
         return None
     
-    def parse_stream(self, chunk: str, buffer: str = "") -> Tuple[str, bool]:
+    def parse_stream(self, chunk: str) -> Tuple[str, bool]:
         if chunk == self.thinking_open:
             return None, True
         if chunk == self.thinking_close:
             return None, False
-        if self.thinking_open in buffer:
-            return chunk, True
         end_thinking = chunk.find(self.thinking_close)
         if end_thinking != -1:
             return chunk[end_thinking + len(self.thinking_close):], False
         return chunk, True
 
+class ParseState:
+    NORMAL = 0
+    FOUND_PREFIX = 1
+    FOUND_FUNC_NAME = 2
+    FOUND_FUNC_ARGS = 3
+    PROCESS_FUNC_ARGS = 4
+    @staticmethod
+    def next_state(state):
+        return (state + 1) % 5
+
 class BaseToolParser:
     def __init__(self, tool_open: str, tool_close: str):
         self.tool_open = tool_open
         self.tool_close = tool_close
+        self.buffer = ""
+        self.state = ParseState.NORMAL
 
     def get_tool_open(self):
         return self.tool_open
@@ -58,18 +69,73 @@ class BaseToolParser:
                 content = content[:start_tool] + content[end_tool + len(self.tool_close):]
         return res, content
     
-    def parse_stream(self, chunk: str, buffer: str = ""):
-        if self.tool_open not in buffer:
-            return chunk, buffer
-        while True:
-            start_tool = buffer.find(self.tool_open)
-            end_tool = buffer.find(self.tool_close, len(self.tool_open))
-            if end_tool == -1:
-                break
-            try:
-                json_output = json.loads(buffer[start_tool + len(self.tool_open):end_tool].strip())
-                return json_output, buffer[end_tool + len(self.tool_close):]
-            except json.JSONDecodeError:
-                print("Error parsing tool call: ", buffer[start_tool + len(self.tool_open):end_tool].strip())
-                break
-        return None, buffer
+    def parse_stream(self, chunk: str):
+        if self.state == ParseState.NORMAL:
+            if chunk.strip() == self.tool_open:
+                self.state = ParseState.next_state(self.state)
+                self.buffer = ""
+                self.current_func = None
+                return None
+            return chunk
+
+        if self.state == ParseState.FOUND_PREFIX:
+            self.buffer += chunk
+            # Try to parse function name
+            if self.buffer.count('"') >= 4:
+                # try parse json
+                try:
+                    json_output = json.loads(self.buffer.rstrip(',') + "}")
+                    self.current_func = {
+                        "name": None
+                    }
+                    self.state = ParseState.next_state(self.state)
+                    return {
+                        "name": json_output["name"],
+                        "arguments": ""
+                    }
+                except json.JSONDecodeError:
+                    return None
+            return None
+
+        if self.state == ParseState.FOUND_FUNC_NAME:
+            # Try to parse function arguments
+            if chunk.strip() == "arguments":
+                self.state = ParseState.next_state(self.state)
+                return None
+            return None
+        
+        if self.state == ParseState.FOUND_FUNC_ARGS:
+            if ":" in chunk:
+                chunk = chunk[:chunk.find(":") + 1: ].lstrip()
+                self.state = ParseState.next_state(self.state)
+                if not chunk:
+                    return None
+            return None
+
+        if '}\n' in chunk:
+            chunk = chunk[:chunk.find('}\n')]
+
+        if chunk == self.tool_close:
+            # end of arguments
+            # reset
+            self.state = ParseState.NORMAL
+            self.buffer = ""
+            self.current_func = None
+            return None
+
+        return {
+            "name": None,
+            "arguments": chunk
+        }
+       
+        
+        
+            
+                
+            
+        
+                    
+        
+
+        
+            

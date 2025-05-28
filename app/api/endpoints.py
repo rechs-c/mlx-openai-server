@@ -3,19 +3,21 @@ import logging
 import random
 import time
 from http import HTTPStatus
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.schemas.openai import (
-    EmbeddingRequest, Embedding, EmbeddingResponse, 
-    ChatCompletionRequest, ChatCompletionChunk, Choice, Message, FunctionCall, StreamingChoice,
-    ChatCompletionResponse, ChatCompletionMessageToolCall, ChoiceDeltaToolCall, ChoiceDeltaFunctionCall, Delta,
-    Model, ModelsResponse
-)
-from app.utils.errors import create_error_response
 from app.handler.mlx_lm import MLXLMHandler
-from typing import List, Dict, Any, Optional, Union
+from app.schemas.openai import (ChatCompletionChunk,
+                                ChatCompletionMessageToolCall,
+                                ChatCompletionRequest, ChatCompletionResponse,
+                                Choice, ChoiceDeltaFunctionCall,
+                                ChoiceDeltaToolCall, Delta, Embedding,
+                                EmbeddingRequest, EmbeddingResponse,
+                                FunctionCall, Message, Model, ModelsResponse,
+                                StreamingChoice)
+from app.utils.errors import create_error_response
 
 router = APIRouter()
 
@@ -126,7 +128,7 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
                 finish_reason=finish_reason if is_final else None
             )]
         )
-    if "name" in chunk:
+    if "name" in chunk and chunk["name"]:
         tool_chunk = ChoiceDeltaToolCall(
             index=chunk["index"],
             type="function",
@@ -139,13 +141,14 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
     else:
         tool_chunk = ChoiceDeltaToolCall(
             index=chunk["index"],
+            type="function",
             function= ChoiceDeltaFunctionCall(
                 arguments=chunk["arguments"]
             )
         )
     delta = Delta(
         content = None,
-        function_call = tool_chunk.function,
+        # function_call = tool_chunk.function,
         role = "assistant",
         tool_calls = [tool_chunk]
     )
@@ -172,15 +175,12 @@ async def handle_stream_response(generator, model: str):
                     finish_reason = "tool_calls"
                     function = {
                         "index": index,
-                        "name": chunk["name"],
                     }
+                    if "name" in chunk and chunk["name"]:
+                        function["name"] = chunk["name"]
+                    if "arguments" in chunk:
+                        function["arguments"] = chunk["arguments"]
                     response_chunk = create_response_chunk(function, model)
-                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-                    function_call = {
-                        "index": index,
-                        "arguments": json.dumps(chunk["arguments"])
-                    }
-                    response_chunk = create_response_chunk(function_call, model)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     index += 1
 
