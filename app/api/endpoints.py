@@ -128,6 +128,19 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
                 finish_reason=finish_reason if is_final else None
             )]
         )
+    if "reasoning_content" in chunk:
+        return ChatCompletionChunk(
+            id=get_id(),
+            object="chat.completion.chunk",
+            created=int(time.time()),
+            model=model,
+            choices=[StreamingChoice(
+                index=0,
+                delta=Delta(reasoning_content=chunk["reasoning_content"], role="assistant"),
+                finish_reason=finish_reason if is_final else None
+            )]
+        )
+
     if "name" in chunk and chunk["name"]:
         tool_chunk = ChoiceDeltaToolCall(
             index=chunk["index"],
@@ -173,14 +186,12 @@ async def handle_stream_response(generator, model: str):
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
-                    function = {
+                    payload = {
                         "index": index,
+                        **chunk
                     }
-                    if "name" in chunk and chunk["name"]:
-                        function["name"] = chunk["name"]
-                    if "arguments" in chunk:
-                        function["arguments"] = chunk["arguments"]
-                    response_chunk = create_response_chunk(function, model)
+                    
+                    response_chunk = create_response_chunk(payload, model)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     index += 1
 

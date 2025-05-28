@@ -90,13 +90,22 @@ class MLXLMHandler:
             response_generator = await self.request_queue.submit(request_id, request_data)
             
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            if tools:
-                tool_parser, _ = get_parser(self.model_type)
+            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+
+            tool_parser, thinking_parser = get_parser(self.model_type)
+            if enable_thinking and thinking_parser:
+                for chunk in response_generator:
+                    if chunk:
+                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
+                        if chunk:
+                            yield chunk
+                        if is_finish:
+                            break
+
             if tools and tool_parser:
                 for chunk in response_generator:
                     if chunk:
-                        chunk = chunk.text
-                        chunk = tool_parser.parse_stream(chunk)
+                        chunk = tool_parser.parse_stream(chunk.text)
                         if chunk:
                             yield chunk
             else:

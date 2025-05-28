@@ -201,6 +201,7 @@ class Delta(BaseModel):
     refusal: Optional[str] = Field(None, description="Refusal reason, if any.")
     role: Optional[Literal["system", "user", "assistant", "tool"]] = Field(None, description="Role in the delta.")
     tool_calls: Optional[List[ChoiceDeltaToolCall]] = Field(None, description="List of tool call deltas, if any.")
+    reasoning_content: Optional[str] = Field(None, description="Reasoning content, if any.")
 
 class StreamingChoice(BaseModel):
     """

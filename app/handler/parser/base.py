@@ -7,6 +7,7 @@ class BaseThinkingParser:
     def __init__(self, thinking_open: str, thinking_close: str):
         self.thinking_open = thinking_open
         self.thinking_close = thinking_close
+        self.is_thinking = False
 
     def parse(self, content: str) -> str:
         if self.thinking_open in content:
@@ -17,14 +18,18 @@ class BaseThinkingParser:
         return None, content
     
     def parse_stream(self, chunk: str) -> Tuple[str, bool]:
-        if chunk == self.thinking_open:
-            return None, True
+        if not self.is_thinking:
+            if chunk == self.thinking_open:
+                self.is_thinking = True
+                return None, False
+            return chunk, False
         if chunk == self.thinking_close:
-            return None, False
-        end_thinking = chunk.find(self.thinking_close)
-        if end_thinking != -1:
-            return chunk[end_thinking + len(self.thinking_close):], False
-        return chunk, True
+            self.is_thinking = False
+            return None, True
+        
+        return {
+            "reasoning_content": chunk
+        }, False
 
 class ParseState:
     NORMAL = 0
