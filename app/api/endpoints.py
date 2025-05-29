@@ -114,11 +114,12 @@ def create_response_embeddings(embeddings: List[float], model: str) -> Embedding
         embeddings_response.append(Embedding(embedding=embedding, index=index))
     return EmbeddingResponse(data=embeddings_response, model=model)
 
-def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_final: bool = False, finish_reason: Optional[str] = "stop") -> ChatCompletionChunk:
+def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_final: bool = False, finish_reason: Optional[str] = "stop", chat_id: Optional[str] = None) -> ChatCompletionChunk:
     """Create a formatted response chunk for streaming."""
+    chat_id = chat_id if chat_id else get_id()
     if isinstance(chunk, str):
         return ChatCompletionChunk(
-            id=get_id(),
+            id=chat_id,
             object="chat.completion.chunk",
             created=int(time.time()),
             model=model,
@@ -130,7 +131,7 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
         )
     if "reasoning_content" in chunk:
         return ChatCompletionChunk(
-            id=get_id(),
+            id=chat_id,
             object="chat.completion.chunk",
             created=int(time.time()),
             model=model,
@@ -166,7 +167,7 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
         tool_calls = [tool_chunk]
     )
     return ChatCompletionChunk(
-        id=get_id(),
+        id=chat_id,
         object="chat.completion.chunk",
         created=int(time.time()),
         model=model,
@@ -176,13 +177,14 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
 
 async def handle_stream_response(generator, model: str):
     """Handle streaming response generation."""
+    chat_index = get_id()
     try:
         finish_reason = "stop"
         index = 0   
         async for chunk in generator:
             if chunk:
                 if isinstance(chunk, str):
-                    response_chunk = create_response_chunk(chunk, model)
+                    response_chunk = create_response_chunk(chunk, model, chat_id=chat_index)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
@@ -191,7 +193,7 @@ async def handle_stream_response(generator, model: str):
                         **chunk
                     }
                     
-                    response_chunk = create_response_chunk(payload, model)
+                    response_chunk = create_response_chunk(payload, model, chat_id=chat_index)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     index += 1
 
@@ -200,7 +202,7 @@ async def handle_stream_response(generator, model: str):
         error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
         yield f"data: {json.dumps(error_response)}\n\n"
     finally:
-        final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason)
+        final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason,chat_id=chat_index)
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
         yield "data: [DONE]\n\n"
 
