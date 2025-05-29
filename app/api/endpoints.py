@@ -67,11 +67,9 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
     
-    print("---------------chat_completions>-----------------")
+    print("---------------chat_completions>request-----------------")
     print(request)
-    print("----------------^-----------------")
-    print(raw_request)
-    print("---------------<chat_completions-----------------")
+    print("---------------request<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
@@ -239,7 +237,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     """Format the final non-streaming response."""
     
     if isinstance(response, str):
-        return ChatCompletionResponse(
+        final_response = ChatCompletionResponse(
             id=get_id(),
             object="chat.completion",
             created=int(time.time()),
@@ -250,30 +248,35 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
                 finish_reason="stop"
             )]
         )
-    
-    content = response.get("content", None)
-    tool_calls = response.get("tool_calls", [])
-    tool_call_responses = []
-    for tool_call in tool_calls:
-        function_call = FunctionCall(
-            name=tool_call.get("name"),
-            arguments=json.dumps(tool_call.get("arguments"))
+    else:
+        content = response.get("content", None)
+        tool_calls = response.get("tool_calls", [])
+        tool_call_responses = []
+        for tool_call in tool_calls:
+            function_call = FunctionCall(
+                name=tool_call.get("name"),
+                arguments=json.dumps(tool_call.get("arguments"))
+            )
+            tool_call_response = ChatCompletionMessageToolCall(
+                id=get_tool_call_id(),
+                type="function",
+                function=function_call
+            )
+            tool_call_responses.append(tool_call_response)
+        
+        final_response = ChatCompletionResponse(
+            id=get_id(),
+            object="chat.completion",
+            created=int(time.time()),
+            model=model,
+            choices=[Choice(
+                index=0,
+                message=Message(role="assistant", content=content, tool_calls=tool_call_responses),
+                finish_reason="function_call"
+            )]
         )
-        tool_call_response = ChatCompletionMessageToolCall(
-            id=get_tool_call_id(),
-            type="function",
-            function=function_call
-        )
-        tool_call_responses.append(tool_call_response)
     
-    return ChatCompletionResponse(
-        id=get_id(),
-        object="chat.completion",
-        created=int(time.time()),
-        model=model,
-        choices=[Choice(
-            index=0,
-            message=Message(role="assistant", content=content, tool_calls=tool_call_responses),
-            finish_reason="function_call"
-        )]
-    )
+    print("---------------chat_completions>response-----------------")
+    print(final_response)
+    print("---------------response<chat_completions-----------------")
+    return final_response
