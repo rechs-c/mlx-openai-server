@@ -90,8 +90,20 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
             )
         
         # Process the request based on type
-        return await process_vision_request(handler, request) if is_vision_request \
-               else await process_text_request(handler, request)
+        response = await process_vision_request(handler, request) if is_vision_request \
+                   else await process_text_request(handler, request)
+        
+        # 只有当 response 不是 StreamingResponse 时才打印
+        if not isinstance(response, StreamingResponse):
+            print("---------------chat_completions output>-----------------")
+            print(response)
+            print("----------------^-----------------")
+        else:
+            print("---------------chat_completions output (streaming)>-----------------")
+            print("Streaming response will be handled by handle_stream_response.")
+            print("----------------^-----------------")
+            
+        return response
     except Exception as e:
         logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -171,6 +183,9 @@ async def handle_stream_response(generator, model: str):
             if chunk:
                 if isinstance(chunk, str):
                     response_chunk = create_response_chunk(chunk, model)
+                    print("---------------chat_completions streaming chunk>-----------------")
+                    print(response_chunk)
+                    print("----------------^-----------------")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
@@ -179,12 +194,18 @@ async def handle_stream_response(generator, model: str):
                         "name": chunk["name"],
                     }
                     response_chunk = create_response_chunk(function, model)
+                    print("---------------chat_completions streaming chunk (function)>-----------------")
+                    print(response_chunk)
+                    print("----------------^-----------------")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     function_call = {
                         "index": index,
                         "arguments": json.dumps(chunk["arguments"])
                     }
                     response_chunk = create_response_chunk(function_call, model)
+                    print("---------------chat_completions streaming chunk (arguments)>-----------------")
+                    print(response_chunk)
+                    print("----------------^-----------------")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     index += 1
 
@@ -276,7 +297,4 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             )]
         )
     
-    print("---------------chat_completions>response-----------------")
-    print(final_response)
-    print("---------------response<chat_completions-----------------")
     return final_response
