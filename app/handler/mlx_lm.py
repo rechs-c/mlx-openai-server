@@ -2,13 +2,14 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, AsyncGenerator
 from http import HTTPStatus
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
+
 from ..core.queue import RequestQueue
-from ..models.mlx_lm import MLX_LM
 from ..handler.parser import get_parser
+from ..models.mlx_lm import MLX_LM
 from ..schemas.openai import ChatCompletionRequest, EmbeddingRequest
 from ..utils.errors import create_error_response
 
@@ -32,7 +33,6 @@ class MLXLMHandler:
         self.model_path = model_path
         self.model = MLX_LM(model_path)
         self.model_type = self.model.get_model_type()
-        self.tool_parser, self.thinking_parser = get_parser(self.model_type)
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
         # Initialize request queue for text tasks
@@ -89,15 +89,25 @@ class MLXLMHandler:
             }
             response_generator = await self.request_queue.submit(request_id, request_data)
             
-            buffer = ""
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            if tools and self.tool_parser:
+            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+
+            tool_parser, thinking_parser = get_parser(self.model_type)
+            if enable_thinking and thinking_parser:
                 for chunk in response_generator:
                     if chunk:
-                        chunk = chunk.text
-                        buffer += chunk
-                        chunk, buffer = self.tool_parser.parse_stream(chunk, buffer)
-                        yield chunk
+                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
+                        if chunk:
+                            yield chunk
+                        if is_finish:
+                            break
+
+            if tools and tool_parser:
+                for chunk in response_generator:
+                    if chunk:
+                        chunk = tool_parser.parse_stream(chunk.text)
+                        if chunk:
+                            yield chunk
             else:
                 for chunk in response_generator:
                     if chunk:
@@ -134,14 +144,27 @@ class MLXLMHandler:
             }
             response = await self.request_queue.submit(request_id, request_data)
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            if tools and self.tool_parser:
-                parsed_response, response = self.tool_parser.parse(response)
-                if parsed_response:
-                    return {
-                        "content": response,
-                        "tool_calls": parsed_response
-                    }
-            return response
+            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+            if not tools and not enable_thinking:
+                return response
+
+            tool_parser, thinking_parser = get_parser(self.model_type)
+            if not tool_parser and not thinking_parser:
+                return response
+            parsed_response = {
+                "reasoning_content": None,
+                "tool_calls": None,
+                "content": None
+            }
+            if enable_thinking and thinking_parser:
+                thinking_response, response = thinking_parser.parse(response)
+                parsed_response["reasoning_content"] = thinking_response
+            if tools and tool_parser:
+                tool_response, response = tool_parser.parse(response)
+                parsed_response["tool_calls"] = tool_response
+            parsed_response["content"] = response
+            
+            return parsed_response
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
