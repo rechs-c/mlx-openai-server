@@ -180,7 +180,7 @@ async def handle_stream_response(generator, model: str):
     chat_index = get_id()
     try:
         finish_reason = "stop"
-        index = 0   
+        index = -1
         async for chunk in generator:
             if chunk:
                 if isinstance(chunk, str):
@@ -188,6 +188,8 @@ async def handle_stream_response(generator, model: str):
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
+                    if "name" in chunk and chunk["name"]:
+                        index += 1
                     payload = {
                         "index": index,
                         **chunk
@@ -195,7 +197,6 @@ async def handle_stream_response(generator, model: str):
                     
                     response_chunk = create_response_chunk(payload, model, chat_id=chat_index)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-                    index += 1
 
     except Exception as e:
         logger.error(f"Error in stream wrapper: {str(e)}")
@@ -262,7 +263,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     reasoning_content = response.get("reasoning_content", None)
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
-    for tool_call in tool_calls:
+    for idx, tool_call in enumerate(tool_calls):
         function_call = FunctionCall(
             name=tool_call.get("name"),
             arguments=json.dumps(tool_call.get("arguments"))
@@ -270,7 +271,8 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         tool_call_response = ChatCompletionMessageToolCall(
             id=get_tool_call_id(),
             type="function",
-            function=function_call
+            function=function_call,
+            index=idx
         )
         tool_call_responses.append(tool_call_response)
     
@@ -282,6 +284,6 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         choices=[Choice(
             index=0,
             message=Message(role="assistant", content=content, reasoning_content=reasoning_content, tool_calls=tool_call_responses),
-            finish_reason="function_call"
+            finish_reason="tool_calls"
         )]
     )

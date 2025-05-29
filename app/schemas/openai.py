@@ -49,6 +49,7 @@ class ChatCompletionMessageToolCall(BaseModel):
     id: str = Field(..., description="The ID of the tool call.")
     function: FunctionCall = Field(..., description="The function call details.")
     type: Literal["function"] = Field(..., description="The type of tool call, always 'function'.")
+    index: int = Field(..., description="The index of the tool call.")
 
 class Message(BaseModel):
     """
