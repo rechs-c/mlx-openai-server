@@ -66,6 +66,12 @@ async def models(raw_request: Request):
 @router.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
+    
+    print("---------------chat_completions>-----------------")
+    print(request)
+    print("----------------^-----------------")
+    print(raw_request)
+    print("---------------<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
