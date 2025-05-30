@@ -74,12 +74,12 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ### 🚀 See It In Action
 
-Check out our [video demonstration](https://youtu.be/BMXOWK1Okk4) to see the server in action! The demo showcases:
+Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the server in action! The demo showcases:
 
 - Setting up and launching the server
 - Using the OpenAI Python SDK for seamless integration
 <p align="center">
-  <a href="https://youtu.be/BMXOWK1Okk4">
+  <a href="https://youtu.be/D9a3AZSj6v8">
     <img src="https://img.youtube.com/vi/D9a3AZSj6v8/0.jpg" alt="MLX Server OAI-Compatible Demo" width="600">
   </a>
 </p>
