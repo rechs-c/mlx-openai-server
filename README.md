@@ -78,10 +78,9 @@ Check out our [video demonstration](https://youtu.be/BMXOWK1Okk4) to see the ser
 
 - Setting up and launching the server
 - Using the OpenAI Python SDK for seamless integration
-
 <p align="center">
   <a href="https://youtu.be/BMXOWK1Okk4">
-    <img src="https://img.youtube.com/vi/BMXOWK1Okk4/0.jpg" alt="MLX Server OAI-Compatible Demo" width="600">
+    <img src="https://img.youtube.com/vi/D9a3AZSj6v8/0.jpg" alt="MLX Server OAI-Compatible Demo" width="600">
   </a>
 </p>
 
