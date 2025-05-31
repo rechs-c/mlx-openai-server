@@ -1,20 +1,18 @@
 import asyncio
 import base64
-import logging
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from http import HTTPStatus
 
 from fastapi import HTTPException
-from ..core.image_processor import ImageProcessor
-from ..core.queue import RequestQueue
-from ..models.mlx_vlm import MLX_VLM
-from ..schemas.openai import ChatCompletionRequest, EmbeddingRequest
-from ..utils.errors import create_error_response
+from loguru import logger
 
-# Configure logging
-logger = logging.getLogger(__name__)
+from app.core.image_processor import ImageProcessor
+from app.core.queue import RequestQueue
+from app.models.mlx_vlm import MLX_VLM
+from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
+from app.utils.errors import create_error_response
 
 class MLXVLMHandler:
     """
@@ -56,6 +54,7 @@ class MLXVLMHandler:
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""
+        
         if not queue_config:
             queue_config = {
                 "max_concurrency": 1,

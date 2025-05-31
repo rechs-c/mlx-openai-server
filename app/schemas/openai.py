@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
+from loguru import logger
 
 
 # Configuration
@@ -127,9 +128,6 @@ class ChatCompletionRequestBase(BaseModel):
         """
         Check if the request includes image content, indicating a vision-based request.
         """
-        import logging
-        logger = logging.getLogger(__name__)
-        
         for message in self.messages:
             content = message.content
             if isinstance(content, list):

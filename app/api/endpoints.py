@@ -1,5 +1,4 @@
 import json
-import logging
 import random
 import time
 from http import HTTPStatus
@@ -7,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union, AsyncGenerator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from loguru import logger
 
 from app.handler.mlx_lm import MLXLMHandler
 from app.schemas.openai import (ChatCompletionChunk,
@@ -20,8 +20,6 @@ from app.schemas.openai import (ChatCompletionChunk,
 from app.utils.errors import create_error_response
 
 router = APIRouter()
-
-logger = logging.getLogger(__name__)
 
 
 @router.post("/health")

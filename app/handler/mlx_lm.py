@@ -1,20 +1,17 @@
 import asyncio
-import logging
 import time
 import uuid
 from http import HTTPStatus
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
+from loguru import logger
 
-from ..core.queue import RequestQueue
-from ..handler.parser import get_parser
-from ..models.mlx_lm import MLX_LM
-from ..schemas.openai import ChatCompletionRequest, EmbeddingRequest
-from ..utils.errors import create_error_response
-
-# Configure logging
-logger = logging.getLogger(__name__)
+from app.core.queue import RequestQueue
+from app.handler.parser import get_parser
+from app.models.mlx_lm import MLX_LM
+from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
+from app.utils.errors import create_error_response
 
 class MLXLMHandler:
     """
