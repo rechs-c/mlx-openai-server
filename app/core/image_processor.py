@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import hashlib
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -11,8 +10,7 @@ import tempfile
 import aiohttp
 import time
 from PIL import Image
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class ImageProcessor:
     def __init__(self, max_workers: int = 4, cache_size: int = 1000):

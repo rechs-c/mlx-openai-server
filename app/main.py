@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import gc
-import logging
 import time
 from contextlib import asynccontextmanager
 
@@ -9,18 +8,23 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from loguru import logger
 
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler 
 from app.api.endpoints import router
 from app.version import __version__
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure loguru
+logger.remove()  # Remove default handler
+logger.add(
+    "logs/app.log",
+    rotation="500 MB",
+    retention="10 days",
+    level="INFO",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 )
-logger = logging.getLogger(__name__)
+logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
