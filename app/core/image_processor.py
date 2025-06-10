@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import hashlib
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -11,8 +10,7 @@ import tempfile
 import aiohttp
 import time
 from PIL import Image
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class ImageProcessor:
     def __init__(self, max_workers: int = 4, cache_size: int = 1000):
@@ -34,7 +32,7 @@ class ImageProcessor:
             data = image_url.encode('utf-8')
         return hashlib.md5(data).hexdigest()
 
-    def _resize_image_keep_aspect_ratio(self, image: Image.Image, max_size: int = 512) -> Image.Image:
+    def _resize_image_keep_aspect_ratio(self, image: Image.Image, max_size: int = 448) -> Image.Image:
         width, height = image.size
         if width <= max_size and height <= max_size:
             return image
@@ -44,6 +42,7 @@ class ImageProcessor:
         else:
             new_height = max_size
             new_width = int(width * max_size / height)
+            
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
     def _prepare_image_for_saving(self, image: Image.Image) -> Image.Image:

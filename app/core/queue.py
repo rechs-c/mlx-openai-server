@@ -1,10 +1,7 @@
 import asyncio
-import logging
 import time
 from typing import Any, Dict, Optional, Callable, Awaitable, TypeVar, Generic
-
-# Configure logging
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 T = TypeVar('T')
 
