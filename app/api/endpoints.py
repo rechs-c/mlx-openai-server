@@ -207,9 +207,6 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
             if chunk:
                 if isinstance(chunk, str):
                     response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
-                    print("---------------chat_completions streaming chunk>-----------------")
-                    print(response_chunk)
-                    print("----------------^-----------------")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
