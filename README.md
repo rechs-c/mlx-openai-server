@@ -12,7 +12,6 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ## Table of Contents
 - [Key Features](#key-features)
-- [Quickstart](#quickstart)
 - [Demo](#demo)
 - [OpenAI Compatibility](#openai-compatibility)
 - [Supported Model Types](#supported-model-types)
@@ -41,29 +40,6 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - 🛡️ **Robust error handling and request management**
 
 ---
-
-## Quickstart
-
-1. **Install** (Python 3.11, Mac M-series):
-   ```bash
-   python3 -m venv oai-compat-server
-   source oai-compat-server/bin/activate
-   pip install mlx-openai-server
-   ```
-2. **Run the server** (replace `<path-to-mlx-model>`):
-   ```bash
-   python -m app.main --model-path <path-to-mlx-model> --model-type lm
-   ```
-3. **Test with OpenAI client:**
-   ```python
-   import openai
-   client = openai.OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
-   response = client.chat.completions.create(
-       model="local-model",
-       messages=[{"role": "user", "content": "Hello!"}]
-   )
-   print(response.choices[0].message.content)
-   ```
 
 ## Demo
 
