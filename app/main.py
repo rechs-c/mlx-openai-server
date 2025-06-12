@@ -15,17 +15,6 @@ from app.handler.mlx_lm import MLXLMHandler
 from app.api.endpoints import router
 from app.version import __version__
 
-# Configure loguru
-logger.remove()  # Remove default handler
-logger.add(
-    "logs/app.log",
-    rotation="500 MB",
-    retention="10 days",
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-)
-logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
-
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, required=True, help="Huggingface model repo or local path")
@@ -35,6 +24,7 @@ def parse_args():
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
+    parser.add_argument("--log-dir", type=str, default=None, help="Directory to output log files. If not set, no file logs will be generated.")
     return parser.parse_args()
 
 
@@ -85,6 +75,19 @@ app = None
 
 async def setup_server(args) -> uvicorn.Config:
     global app
+
+    # Configure loguru
+    logger.remove()  # Remove default handler
+    if args.log_dir:
+        log_file_path = f"{args.log_dir}/app.log"
+        logger.add(
+            log_file_path,
+            rotation="500 MB",
+            retention="10 days",
+            level="INFO",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+        )
+    logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
     
     # Create FastAPI app with the configured lifespan
     app = FastAPI(
