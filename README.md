@@ -24,12 +24,11 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - [Request Queue System](#request-queue-system)
 - [API Response Schemas](#api-response-schemas)
 - [Example Notebooks](#example-notebooks)
-- [Large models](#large-models)
+- [Large Models](#large-models)
 - [Contributing](#contributing)
 - [License](#license)
 - [Support](#support)
 - [Acknowledgments](#acknowledgments)
-- [FAQ](#faq)
 
 ---
 
@@ -629,7 +628,7 @@ The repository includes example notebooks to help you get started with different
   </p>
 
 
-## Large models
+## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.
 If you see the following warning message:
 > [WARNING] Generating with a model that requires ...
