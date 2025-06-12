@@ -1,11 +1,7 @@
 # mlx-openai-server
 
-> **Breaking Change:**
-> - The package and CLI have been renamed from `mlx-server` to `mlx-openai-server` for PyPI compatibility and uniqueness.
-> - Please update your usage and scripts accordingly.
-
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 ## Description
 This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based vision and language models locally with an OpenAI-compatible interface.
@@ -49,11 +45,11 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ## Quickstart
 
-1. **Install** (Python 3.11+, Mac M-series):
+1. **Install** (Python 3.11, Mac M-series):
    ```bash
    python3 -m venv oai-compat-server
    source oai-compat-server/bin/activate
-   pip install git+https://github.com/cubist38/mlx-openai-server.git
+   pip install mlx-openai-server
    ```
 2. **Run the server** (replace `<path-to-mlx-model>`):
    ```bash
@@ -109,7 +105,7 @@ Follow these steps to set up the MLX-powered server:
 
 ### Prerequisites
 - MacOS with Apple Silicon (M-series) chip
-- Python 3.11 or later (native ARM version)
+- Python 3.11 (native ARM version)
 - pip package manager
 
 ### Setup Steps
