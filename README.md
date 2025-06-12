@@ -86,7 +86,7 @@ Follow these steps to set up the MLX-powered server:
 ### Setup Steps
 1. Create a virtual environment for the project:
     ```bash
-    python3 -m venv oai-compat-server
+    python3.11 -m venv oai-compat-server
     ```
 
 2. Activate the virtual environment:
