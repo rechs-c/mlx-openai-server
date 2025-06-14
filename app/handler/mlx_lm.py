@@ -19,18 +19,20 @@ class MLXLMHandler:
     Provides request queuing, metrics tracking, and robust error handling.
     """
 
-    def __init__(self, model_path: str, max_concurrency: int = 1):
+    def __init__(self, model_path: str, max_concurrency: int = 1, enable_tool_output: bool = False):
         """
         Initialize the handler with the specified model path.
         
         Args:
             model_path (str): Path to the model directory.
             max_concurrency (int): Maximum number of concurrent model inference tasks.
+            enable_tool_output (bool): Whether to enable tool call output in responses.
         """
         self.model_path = model_path
         self.model = MLX_LM(model_path)
         self.model_type = self.model.get_model_type()
         self.model_created = int(time.time())  # Store creation time when model is loaded
+        self.enable_tool_output = enable_tool_output
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
@@ -99,7 +101,7 @@ class MLXLMHandler:
                         if is_finish:
                             break
 
-            if tools and tool_parser:
+            if self.enable_tool_output and tools and tool_parser:
                 for chunk in response_generator:
                     if chunk:
                         chunk = tool_parser.parse_stream(chunk.text)
@@ -142,12 +144,14 @@ class MLXLMHandler:
             response = await self.request_queue.submit(request_id, request_data)
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
-            if not tools and not enable_thinking:
+            
+            if not self.enable_tool_output and not enable_thinking:
                 return response
 
             tool_parser, thinking_parser = get_parser(self.model_type)
             if not tool_parser and not thinking_parser:
                 return response
+            
             parsed_response = {
                 "reasoning_content": None,
                 "tool_calls": None,
@@ -156,9 +160,11 @@ class MLXLMHandler:
             if enable_thinking and thinking_parser:
                 thinking_response, response = thinking_parser.parse(response)
                 parsed_response["reasoning_content"] = thinking_response
-            if tools and tool_parser:
+            
+            if self.enable_tool_output and tools and tool_parser:
                 tool_response, response = tool_parser.parse(response)
                 parsed_response["tool_calls"] = tool_response
+            
             parsed_response["content"] = response
             
             return parsed_response
