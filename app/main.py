@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
-    parser.add_argument("--enable-tool-output", type=bool, default=True, help="Enable or disable tool call output in responses.")
+    parser.add_argument("--disable-tool-output", action="store_true", help="Disable tool call output in responses.")
     # parser.add_argument("--log-dir", type=str, default=None, help="Directory to output log files. If not set, no file logs will be generated.")
     return parser.parse_args()
 
@@ -47,17 +47,18 @@ def create_lifespan(config_args):
     async def lifespan(app: FastAPI):
         try:
             logger.info(f"Initializing MLX handler with model path: {config_args.model_path}")
+            enable_tool_output = not config_args.disable_tool_output # Calculate enable_tool_output
             if config_args.model_type == "vlm":
                 handler = MLXVLMHandler(
                     model_path=config_args.model_path,
                     max_concurrency=config_args.max_concurrency,
-                    # enable_tool_output=config_args.enable_tool_output
+                    enable_tool_output=enable_tool_output
                 )
             else:
                 handler = MLXLMHandler(
                     model_path=config_args.model_path,
                     max_concurrency=config_args.max_concurrency,
-                    enable_tool_output=config_args.enable_tool_output
+                    enable_tool_output=enable_tool_output
                 )       
             # Initialize queue
             await handler.initialize({
