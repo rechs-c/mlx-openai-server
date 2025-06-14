@@ -1,11 +1,7 @@
 # mlx-openai-server
 
-> **Breaking Change:**
-> - The package and CLI have been renamed from `mlx-server` to `mlx-openai-server` for PyPI compatibility and uniqueness.
-> - Please update your usage and scripts accordingly.
-
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 ## Description
 This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based vision and language models locally with an OpenAI-compatible interface.
@@ -16,7 +12,6 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ## Table of Contents
 - [Key Features](#key-features)
-- [Quickstart](#quickstart)
 - [Demo](#demo)
 - [OpenAI Compatibility](#openai-compatibility)
 - [Supported Model Types](#supported-model-types)
@@ -28,12 +23,11 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - [Request Queue System](#request-queue-system)
 - [API Response Schemas](#api-response-schemas)
 - [Example Notebooks](#example-notebooks)
-- [Large models](#large-models)
+- [Large Models](#large-models)
 - [Contributing](#contributing)
 - [License](#license)
 - [Support](#support)
 - [Acknowledgments](#acknowledgments)
-- [FAQ](#faq)
 
 ---
 
@@ -46,29 +40,6 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - 🛡️ **Robust error handling and request management**
 
 ---
-
-## Quickstart
-
-1. **Install** (Python 3.11+, Mac M-series):
-   ```bash
-   python3 -m venv oai-compat-server
-   source oai-compat-server/bin/activate
-   pip install git+https://github.com/cubist38/mlx-openai-server.git
-   ```
-2. **Run the server** (replace `<path-to-mlx-model>`):
-   ```bash
-   python -m app.main --model-path <path-to-mlx-model> --model-type lm
-   ```
-3. **Test with OpenAI client:**
-   ```python
-   import openai
-   client = openai.OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
-   response = client.chat.completions.create(
-       model="local-model",
-       messages=[{"role": "user", "content": "Hello!"}]
-   )
-   print(response.choices[0].message.content)
-   ```
 
 ## Demo
 
@@ -109,13 +80,13 @@ Follow these steps to set up the MLX-powered server:
 
 ### Prerequisites
 - MacOS with Apple Silicon (M-series) chip
-- Python 3.11 or later (native ARM version)
+- Python 3.11 (native ARM version)
 - pip package manager
 
 ### Setup Steps
 1. Create a virtual environment for the project:
     ```bash
-    python3 -m venv oai-compat-server
+    python3.11 -m venv oai-compat-server
     ```
 
 2. Activate the virtual environment:
@@ -633,7 +604,7 @@ The repository includes example notebooks to help you get started with different
   </p>
 
 
-## Large models
+## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.
 If you see the following warning message:
 > [WARNING] Generating with a model that requires ...
