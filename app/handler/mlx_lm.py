@@ -145,10 +145,8 @@ class MLXLMHandler:
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
             
-            if not self.enable_tool_output and not enable_thinking:
-                return response
-
             tool_parser, thinking_parser = get_parser(self.model_type)
+            # 如果没有工具或思考解析器，直接返回原始响应
             if not tool_parser and not thinking_parser:
                 return response
             
@@ -157,15 +155,22 @@ class MLXLMHandler:
                 "tool_calls": None,
                 "content": None
             }
+            
+            # 只有当 enable_thinking 为 True 且存在 thinking_parser 时才解析思考内容
             if enable_thinking and thinking_parser:
                 thinking_response, response = thinking_parser.parse(response)
                 parsed_response["reasoning_content"] = thinking_response
             
+            # 只有当 enable_tool_output 为 True 且存在 tools 和 tool_parser 时才解析工具调用
             if self.enable_tool_output and tools and tool_parser:
                 tool_response, response = tool_parser.parse(response)
                 parsed_response["tool_calls"] = tool_response
             
             parsed_response["content"] = response
+            
+            # 如果既没有思考内容也没有工具调用，则返回原始响应
+            if parsed_response["reasoning_content"] is None and parsed_response["tool_calls"] is None:
+                return response
             
             return parsed_response
             
