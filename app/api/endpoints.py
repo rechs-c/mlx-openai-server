@@ -65,9 +65,9 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
     
-    logger.info("---------------chat_completions>request-----------------")
-    logger.info(request)
-    logger.info("---------------request<chat_completions-----------------")
+    # logger.info("---------------chat_completions>request-----------------")
+    # logger.info(request)
+    # logger.info("---------------request<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
@@ -91,15 +91,15 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         response = await process_vision_request(handler, request) if is_vision_request \
                    else await process_text_request(handler, request)
         
-        # 只有当 response 不是 StreamingResponse 时才打印
-        if not isinstance(response, StreamingResponse):
-            logger.info("---------------chat_completions output>-----------------")
-            logger.info(response)
-            logger.info("----------------^-----------------")
-        else:
-            logger.info("---------------chat_completions output (streaming)>-----------------")
-            logger.info("Streaming response will be handled by handle_stream_response.")
-            logger.info("----------------^-----------------")
+        # # 只有当 response 不是 StreamingResponse 时才打印
+        # if not isinstance(response, StreamingResponse):
+        #     logger.info("---------------chat_completions output>-----------------")
+        #     logger.info(response)
+        #     logger.info("----------------^-----------------")
+        # else:
+        #     logger.info("---------------chat_completions output (streaming)>-----------------")
+        #     logger.info("Streaming response will be handled by handle_stream_response.")
+        #     logger.info("----------------^-----------------")
             
         return response
     except Exception as e:
