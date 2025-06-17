@@ -69,7 +69,7 @@ class ChatCompletionRequestBase(BaseModel):
     Base model for chat completion requests.
     """
     model: str = Field(Config.TEXT_MODEL, description="The model to use for completion.")
-    messages: List[Message] = Field(..., description="The list of messages in the conversation.")
+    messages: Union[str, List[Message]] = Field(..., description="The list of messages in the conversation.")
     tools: Optional[List[Dict[str, Any]]] = Field(None, description="List of tools available for the request.")
     tool_choice: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Tool choice for the request.")
     max_tokens: Optional[int] = Field(None, description="The maximum number of tokens to generate.")
@@ -90,6 +90,10 @@ class ChatCompletionRequestBase(BaseModel):
         """
         if not v:
             raise ValueError("messages cannot be empty")
+          
+        if isinstance(v, str):
+            # 如果 messages 是字符串，将其转换为包含单个用户消息的列表
+            v = [{"role": "user", "content": v}]
         
         # Validate message history length
         if len(v) > 100:  # OpenAI's limit is typically around 100 messages
