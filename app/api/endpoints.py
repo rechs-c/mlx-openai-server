@@ -65,9 +65,9 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
     
-    print("---------------chat_completions>request-----------------")
-    print(request)
-    print("---------------request<chat_completions-----------------")
+    logger.info("---------------chat_completions>request-----------------")
+    logger.info(request)
+    logger.info("---------------request<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
@@ -93,17 +93,17 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         
         # 只有当 response 不是 StreamingResponse 时才打印
         if not isinstance(response, StreamingResponse):
-            print("---------------chat_completions output>-----------------")
-            print(response)
-            print("----------------^-----------------")
+            logger.info("---------------chat_completions output>-----------------")
+            logger.info(response)
+            logger.info("----------------^-----------------")
         else:
-            print("---------------chat_completions output (streaming)>-----------------")
-            print("Streaming response will be handled by handle_stream_response.")
-            print("----------------^-----------------")
+            logger.info("---------------chat_completions output (streaming)>-----------------")
+            logger.info("Streaming response will be handled by handle_stream_response.")
+            logger.info("----------------^-----------------")
             
         return response
     except Exception as e:
-        logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
+        logger.error(f"Error processing chat completion request: {(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 @router.post("/v1/embeddings")
