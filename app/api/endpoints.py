@@ -265,11 +265,11 @@ def get_tool_call_id():
     random_suffix = random.randint(0, 999999)
     return f"call_{timestamp}{random_suffix:06d}"
 
-def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str) -> ChatCompletionResponse:
+def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> ChatCompletionResponse:
     """Format the final non-streaming response."""
     
     if isinstance(response, str):
-        final_response = ChatCompletionResponse(
+        return ChatCompletionResponse(
             id=get_id(),
             object="chat.completion",
             created=int(time.time()),
@@ -281,6 +281,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             )]
         )
     
+    # If not a string, assume it's a dictionary
     reasoning_content = response.get("reasoning_content", None)
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
@@ -299,8 +300,11 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     
     if len(tool_calls) > 0:
         message = Message(role="assistant", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+        finish_reason = "tool_calls"
     else:
-        message = Message(role="assistant", content=response, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+        # If no tool calls, content should be present in the dictionary response
+        message = Message(role="assistant", content=response.get("content", ""), reasoning_content=reasoning_content)
+        finish_reason = "stop"
     
     return ChatCompletionResponse(
         id=get_id(),
@@ -310,6 +314,6 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         choices=[Choice(
             index=0,
             message=message,
-            finish_reason="tool_calls"
+            finish_reason=finish_reason
         )]
     )
