@@ -65,9 +65,9 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
     
-    # logger.info("---------------chat_completions>request-----------------")
-    # logger.info(request)
-    # logger.info("---------------request<chat_completions-----------------")
+    logger.info("---------------chat_completions>request-----------------")
+    logger.info(request)
+    logger.info("---------------request<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
