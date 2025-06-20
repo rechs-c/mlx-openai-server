@@ -6,6 +6,7 @@ from mlx_lm.generate import (
 )
 from mlx_lm.sample_utils import make_sampler
 from typing import List, Dict, Union, Generator, Optional, Tuple
+import gc
 
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_TOP_P = 0.95
@@ -93,19 +94,36 @@ class MLX_LM:
         """
         # Process in batches to optimize memory usage
         all_embeddings = []
-        for i in range(0, len(prompts), batch_size):
-            batch_prompts = prompts[i:i + batch_size]
-            tokenized_batch = self._batch_process(batch_prompts, batch_size)
-            
-            # Convert to MLX array for efficient computation
-            tokenized_batch = mx.array(tokenized_batch)
-            
-            # Compute embeddings for batch
-            batch_embeddings = self.model.model(tokenized_batch)
-            pooled_embedding = self._apply_pooling_strategy(batch_embeddings)
-            if normalize:
-                pooled_embedding = self._apply_l2_normalization(pooled_embedding)
-            all_embeddings.extend(pooled_embedding.tolist())
+        try:
+            for i in range(0, len(prompts), batch_size):
+                batch_prompts = prompts[i:i + batch_size]
+                tokenized_batch = self._batch_process(batch_prompts, batch_size)
+                
+                # Convert to MLX array for efficient computation
+                tokenized_batch = mx.array(tokenized_batch)
+                
+                try:
+                    # Compute embeddings for batch
+                    batch_embeddings = self.model.model(tokenized_batch)
+                    pooled_embedding = self._apply_pooling_strategy(batch_embeddings)
+                    if normalize:
+                        pooled_embedding = self._apply_l2_normalization(pooled_embedding)
+                    all_embeddings.extend(pooled_embedding.tolist())
+                finally:
+                    # Explicitly free MLX arrays to prevent memory leaks
+                    del tokenized_batch
+                    if 'batch_embeddings' in locals():
+                        del batch_embeddings
+                    if 'pooled_embedding' in locals():
+                        del pooled_embedding
+                    # Force MLX garbage collection
+                    mx.metal.clear_cache()
+                    gc.collect()
+        except Exception as e:
+            # Clean up on error
+            mx.metal.clear_cache()
+            gc.collect()
+            raise
 
         return all_embeddings
         
