@@ -82,7 +82,7 @@ class MLXLMHandler:
         
         # try:
         chat_messages, model_params = await self._prepare_text_request(request)
-        tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
+        tools = model_params.get("chat_template_kwargs", {}).get("tools", [])
         enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
         response_generator = self.model(
