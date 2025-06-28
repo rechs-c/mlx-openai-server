@@ -191,43 +191,43 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
     """Handle streaming response generation (OpenAI-compatible)."""
     chat_index = get_id()
     created_time = int(time.time())
-    try:
-        finish_reason = "stop"
-        index = -1
-        # First chunk: role-only delta, as per OpenAI
-        first_chunk = ChatCompletionChunk(
-            id=chat_index,
-            object="chat.completion.chunk",
-            created=created_time,
-            model=model,
-            choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
-        )
-        yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
-        async for chunk in generator:
-            if chunk:
-                if isinstance(chunk, str):
-                    response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
-                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-                else:
-                    finish_reason = "tool_calls"
-                    if "name" in chunk and chunk["name"]:
-                        index += 1
-                    payload = {
-                        "index": index,
-                        **chunk
-                    }
-                    response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
-                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-    except Exception as e:
-        logger.error(f"Error in stream wrapper: {str(e)}")
-        error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-        # Yield error as last chunk before [DONE]
-        yield f"data: {json.dumps(error_response)}\n\n"
-    finally:
+    # try:
+    finish_reason = "stop"
+    index = -1
+    # First chunk: role-only delta, as per OpenAI
+    first_chunk = ChatCompletionChunk(
+        id=chat_index,
+        object="chat.completion.chunk",
+        created=created_time,
+        model=model,
+        choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
+    )
+    yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
+    async for chunk in generator:
+        if chunk:
+            if isinstance(chunk, str):
+                response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
+                yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+            else:
+                finish_reason = "tool_calls"
+                if "name" in chunk and chunk["name"]:
+                    index += 1
+                payload = {
+                    "index": index,
+                    **chunk
+                }
+                response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
+                yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+    # except Exception as e:
+    #     logger.error(f"Error in stream wrapper: {str(e)}")
+    #     error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+    #     # Yield error as last chunk before [DONE]
+    #     yield f"data: {json.dumps(error_response)}\n\n"
+    # finally:
         # Final chunk: finish_reason and [DONE], as per OpenAI
-        final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
-        yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
-        yield "data: [DONE]\n\n"
+    final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
+    yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
+    yield "data: [DONE]\n\n"
 
 async def process_vision_request(handler, request: ChatCompletionRequest):
     """Process vision-specific requests."""
