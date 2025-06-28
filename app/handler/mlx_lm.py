@@ -80,48 +80,48 @@ class MLXLMHandler:
         """
         request_id = f"text-{uuid.uuid4()}"
         
-        try:
-            chat_messages, model_params = await self._prepare_text_request(request)
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+        # try:
+        chat_messages, model_params = await self._prepare_text_request(request)
+        tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
+        enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
-            response_generator = self.model(
-                messages=chat_messages,
-                stream=True,
-                **model_params
-            )
+        response_generator = self.model(
+            messages=chat_messages,
+            stream=True,
+            **model_params
+        )
 
-            tool_parser, thinking_parser = get_parser(self.model_type)
-            if enable_thinking and thinking_parser:
-                for chunk_obj in response_generator:
-                    if chunk_obj:
-                        parsed_chunk, is_finish = thinking_parser.parse_stream(chunk_obj.text)
-                        if parsed_chunk:
-                            if isinstance(parsed_chunk, dict):
-                                yield json.dumps(parsed_chunk) + "\n"
-                            else:
-                                yield parsed_chunk
-                        if is_finish:
-                            break
+        tool_parser, thinking_parser = get_parser(self.model_type)
+        if enable_thinking and thinking_parser:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    parsed_chunk, is_finish = thinking_parser.parse_stream(chunk_obj.text)
+                    if parsed_chunk:
+                        if isinstance(parsed_chunk, dict):
+                            yield json.dumps(parsed_chunk) + "\n"
+                        else:
+                            yield parsed_chunk
+                    if is_finish:
+                        break
 
-            if self.enable_tool_output and tools and tool_parser:
-                for chunk_obj in response_generator:
-                    if chunk_obj:
-                        parsed_chunk = tool_parser.parse_stream(chunk_obj.text)
-                        if parsed_chunk:
-                            if isinstance(parsed_chunk, dict):
-                                yield json.dumps(parsed_chunk) + "\n"
-                            else:
-                                yield parsed_chunk
-            else:
-                for chunk_obj in response_generator:
-                    if chunk_obj:
-                        yield chunk_obj.text
+        if self.enable_tool_output and tools and tool_parser:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    parsed_chunk = tool_parser.parse_stream(chunk_obj.text)
+                    if parsed_chunk:
+                        if isinstance(parsed_chunk, dict):
+                            yield json.dumps(parsed_chunk) + "\n"
+                        else:
+                            yield parsed_chunk
+        else:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    yield chunk_obj.text
             
-        except Exception as e:
-            logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
-            content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            raise HTTPException(status_code=500, detail=content)
+        # except Exception as e:
+        #     logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
+        #     content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+        #     raise HTTPException(status_code=500, detail=content)
 
     async def generate_text_response(self, request: ChatCompletionRequest) -> Union[str, Dict[str, Any]]:
         """
