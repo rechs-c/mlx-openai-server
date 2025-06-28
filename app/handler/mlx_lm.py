@@ -299,7 +299,8 @@ class MLXLMHandler:
             tools = request.tools or None
             chat_template_kwargs = request.chat_template_kwargs
             if tools:
-                chat_template_kwargs.tools = tools
+                # Convert each tool dictionary in the list to a JSON string
+                chat_template_kwargs.tools = [json.dumps(tool) for tool in tools]
 
             model_params = {
                 "temperature": temperature,
@@ -307,7 +308,7 @@ class MLXLMHandler:
                 "frequency_penalty": frequency_penalty,
                 "presence_penalty": presence_penalty,
                 "max_tokens": max_tokens,
-                "tools": tools,
+                "tools": tools, # Keep original tools for internal logic if needed
                 "chat_template_kwargs": chat_template_kwargs.model_dump()
             }
             
