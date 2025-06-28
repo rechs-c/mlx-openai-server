@@ -2,6 +2,7 @@ import asyncio
 import time
 import uuid
 from http import HTTPStatus
+import json
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -93,24 +94,30 @@ class MLXLMHandler:
 
             tool_parser, thinking_parser = get_parser(self.model_type)
             if enable_thinking and thinking_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
+                for chunk_obj in response_generator:
+                    if chunk_obj:
+                        parsed_chunk, is_finish = thinking_parser.parse_stream(chunk_obj.text)
+                        if parsed_chunk:
+                            if isinstance(parsed_chunk, dict):
+                                yield json.dumps(parsed_chunk) + "\n"
+                            else:
+                                yield parsed_chunk
                         if is_finish:
                             break
 
             if self.enable_tool_output and tools and tool_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk = tool_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
+                for chunk_obj in response_generator:
+                    if chunk_obj:
+                        parsed_chunk = tool_parser.parse_stream(chunk_obj.text)
+                        if parsed_chunk:
+                            if isinstance(parsed_chunk, dict):
+                                yield json.dumps(parsed_chunk) + "\n"
+                            else:
+                                yield parsed_chunk
             else:
-                for chunk in response_generator:
-                    if chunk:
-                        yield chunk.text
+                for chunk_obj in response_generator:
+                    if chunk_obj:
+                        yield chunk_obj.text
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
