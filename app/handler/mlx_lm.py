@@ -3,7 +3,7 @@ import time
 import uuid
 from http import HTTPStatus
 import json
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 
 from fastapi import HTTPException
 from loguru import logger
@@ -82,15 +82,14 @@ class MLXLMHandler:
         
         try:
             chat_messages, model_params = await self._prepare_text_request(request)
-            request_data = {
-                "messages": chat_messages,
-                "stream": True,
-                **model_params
-            }
-            response_generator = await self.request_queue.submit(request_id, request_data)
-            
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+
+            response_generator = self.model(
+                messages=chat_messages,
+                stream=True,
+                **model_params
+            )
 
             tool_parser, thinking_parser = get_parser(self.model_type)
             if enable_thinking and thinking_parser:
@@ -119,16 +118,12 @@ class MLXLMHandler:
                     if chunk_obj:
                         yield chunk_obj.text
             
-        except asyncio.QueueFull:
-            logger.error("Too many requests. Service is at capacity.")
-            content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
-            raise HTTPException(status_code=429, detail=content)
         except Exception as e:
             logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
             content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
 
-    async def generate_text_response(self, request: ChatCompletionRequest) -> str:
+    async def generate_text_response(self, request: ChatCompletionRequest) -> Union[str, Dict[str, Any]]:
         """
         Generate a complete response for text-only chat completion requests.
         Uses the request queue for handling concurrent requests.
@@ -237,17 +232,15 @@ class MLXLMHandler:
 
             # Extract request parameters
             messages = request_data.get("messages", [])
-            stream = request_data.get("stream", False)
             
             # Remove these keys from model_params
             model_params = request_data.copy()
             model_params.pop("messages", None)
-            model_params.pop("stream", None)
             
             # Call the model
             response = self.model(
                 messages=messages,
-                stream=stream,
+                stream=False, # Ensure stream is always False for _process_request
                 **model_params
             )
            
