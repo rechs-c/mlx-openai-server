@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+import random # Added for get_tool_call_id
 from http import HTTPStatus
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 import gc
@@ -13,6 +14,14 @@ from app.handler.parser import get_parser
 from app.models.mlx_lm import MLX_LM
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
 from app.utils.errors import create_error_response
+
+def get_tool_call_id():
+    """
+    Generate a unique ID for tool calls with timestamp and random component.
+    """
+    timestamp = int(time.time())
+    random_suffix = random.randint(0, 999999)
+    return f"call_{timestamp}{random_suffix:06d}"
 
 class MLXLMHandler:
     """
@@ -74,7 +83,7 @@ class MLXLMHandler:
             request: ChatCompletionRequest object containing the messages.
         
         Yields:
-            str: Response chunks.
+            Dict[str, Any]: Response chunks in a format suitable for OpenAI streaming.
         """
         request_id = f"text-{uuid.uuid4()}"
         
@@ -86,30 +95,49 @@ class MLXLMHandler:
                 **model_params
             }
             response_generator = await self.request_queue.submit(request_id, request_data)
-            
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
-            tool_parser, thinking_parser = get_parser(self.model_type)
-            if enable_thinking and thinking_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
-                        if is_finish:
-                            break
+            tool_call_index = 0
+            for chunk in response_generator:
+                if chunk:
+                    if isinstance(chunk, str):
+                        # 普通文本
+                        yield {"content": chunk}
+                    elif isinstance(chunk, dict) and "function" in chunk:
+                        # 工具调用 (mlx-lm server 返回的是完整的工具调用对象)
+                        function_name = chunk["function"]["name"]
+                        full_arguments_str = chunk["function"]["arguments"]
 
-            if tools and tool_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk = tool_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
-            else:
-                for chunk in response_generator:
-                    if chunk:
-                        yield chunk.text
+                        # 1. 发送初始 delta (name, arguments="")
+                        yield {
+                            "index": tool_call_index,
+                            "type": "function",
+                            "id": get_tool_call_id(),
+                            "function": {
+                                "name": function_name,
+                                "arguments": ""
+                            }
+                        }
+
+                        # 2. 分段发送 arguments
+                        ARGUMENT_CHUNK_SIZE = 20 # 可以调整
+                        for i in range(0, len(full_arguments_str), ARGUMENT_CHUNK_SIZE):
+                            segment = full_arguments_str[i : i + ARGUMENT_CHUNK_SIZE]
+                            yield {
+                                "index": tool_call_index,
+                                "type": "function",
+                                "function": {
+                                    "arguments": segment
+                                }
+                            }
+                            await asyncio.sleep(0.001) # 小延迟，模拟流式传输
+
+                        tool_call_index += 1
+                    elif isinstance(chunk, dict) and "reasoning_content" in chunk:
+                        # 推理内容
+                        yield {"reasoning_content": chunk["reasoning_content"]}
+                    else:
+                        logger.warning(f"Unknown chunk type received from MLX model: {chunk}")
+                        yield {"content": str(chunk)} # 兜底处理
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")

@@ -139,22 +139,29 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
             )]
         )
 
-    if "name" in chunk and chunk["name"]:
+    # 处理工具调用 delta
+    # chunk 结构现在是 {"index": ..., "type": "function", "id": ..., "name": "...", "arguments": "..."}
+    # 或者 {"index": ..., "type": "function", "arguments": "..."}
+    tool_chunk_id = chunk.get("id") # 从 chunk 中获取 id
+    tool_chunk_name = chunk.get("name")
+    tool_chunk_arguments = chunk.get("arguments", "")
+
+    if tool_chunk_name: # 初始工具调用 delta (包含 name)
         tool_chunk = ChoiceDeltaToolCall(
             index=chunk["index"],
             type="function",
-            id=get_tool_call_id(),
+            id=tool_chunk_id, # 使用传递过来的 id
             function=ChoiceDeltaFunctionCall(
-                name=chunk["name"],
-                arguments=""
+                name=tool_chunk_name,
+                arguments=tool_chunk_arguments # 初始为空，或包含第一个片段
             )
         )
-    else:
+    else: # 后续工具调用 delta (只包含 arguments 片段)
         tool_chunk = ChoiceDeltaToolCall(
             index=chunk["index"],
             type="function",
             function= ChoiceDeltaFunctionCall(
-                arguments=chunk["arguments"]
+                arguments=tool_chunk_arguments
             )
         )
     delta = Delta(
@@ -177,7 +184,6 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
     created_time = int(time.time())
     try:
         finish_reason = "stop"
-        index = -1
         # First chunk: role-only delta, as per OpenAI
         first_chunk = ChatCompletionChunk(
             id=chat_index,
@@ -187,20 +193,35 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
             choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
         )
         yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
+        
         async for chunk in generator:
             if chunk:
-                if isinstance(chunk, str):
-                    response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
+                if "content" in chunk:
+                    # 普通文本
+                    response_chunk = create_response_chunk(chunk["content"], model, chat_id=chat_index, created_time=created_time)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-                else:
-                    finish_reason = "tool_calls"
-                    if "name" in chunk and chunk["name"]:
-                        index += 1
+                elif "reasoning_content" in chunk:
+                    # 推理内容
+                    response_chunk = create_response_chunk({"reasoning_content": chunk["reasoning_content"]}, model, chat_id=chat_index, created_time=created_time)
+                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+                elif "function" in chunk: # 检查是否有 function 键，表示是工具调用
+                    # mlx_lm.py 已经将工具调用分段，这里直接传递给 create_response_chunk
+                    # chunk 结构现在是 {"index": ..., "type": "function", "id": ..., "function": {"name": "...", "arguments": "..."}}
+                    # 或者 {"index": ..., "type": "function", "function": {"arguments": "..."}}
                     payload = {
-                        "index": index,
-                        **chunk
+                        "index": chunk.get("index", 0), # 确保有 index
+                        "type": chunk.get("type", "function"),
+                        "id": chunk.get("id"), # 只有初始 delta 有 id
+                        "name": chunk["function"].get("name"), # 只有初始 delta 有 name
+                        "arguments": chunk["function"].get("arguments", "")
                     }
                     response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
+                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+                    finish_reason = "tool_calls" # 如果有工具调用，结束原因为 tool_calls
+                else:
+                    logger.warning(f"Unknown chunk format from handler: {chunk}")
+                    # 兜底处理，避免中断流
+                    response_chunk = create_response_chunk(str(chunk), model, chat_id=chat_index, created_time=created_time)
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
         logger.error(f"Error in stream wrapper: {str(e)}")
@@ -269,9 +290,11 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
     for idx, tool_call in enumerate(tool_calls):
+        # 确定 tool_call 结构为 {"function": {"name": "...", "arguments": "{...}"}, "type": "function", "id": null}
+        function_data = tool_call.get("function", {})
         function_call = FunctionCall(
-            name=tool_call.get("name"),
-            arguments=json.dumps(tool_call.get("arguments"))
+            name=function_data.get("name"),
+            arguments=function_data.get("arguments") # arguments 已经是 JSON 字符串，无需再次 dumps
         )
         tool_call_response = ChatCompletionMessageToolCall(
             id=get_tool_call_id(),
