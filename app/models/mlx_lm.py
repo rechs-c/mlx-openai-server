@@ -6,6 +6,7 @@ from mlx_lm.generate import (
 )
 from mlx_lm.sample_utils import make_sampler
 from typing import List, Dict, Union, Generator, Optional, Tuple
+from loguru import logger
 
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_TOP_P = 0.95
@@ -142,6 +143,8 @@ class MLX_LM:
         mx.random.seed(seed)
 
         # Prepare input tokens
+        logger.info(f"Messages being sent to chat template: {messages}")
+        logger.info(f"Chat template kwargs: {chat_template_kwargs}")
         prompt = self.tokenizer.apply_chat_template(
             messages,
             **chat_template_kwargs

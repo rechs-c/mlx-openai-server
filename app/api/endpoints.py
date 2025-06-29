@@ -65,9 +65,9 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
     
-    print("---------------chat_completions>request-----------------")
-    print(request)
-    print("---------------request<chat_completions-----------------")
+    logger.info("---------------chat_completions>request-----------------")
+    logger.info(request)
+    logger.info("---------------request<chat_completions-----------------")
 
     handler = raw_request.app.state.handler
     if handler is None:
@@ -91,19 +91,19 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         response = await process_vision_request(handler, request) if is_vision_request \
                    else await process_text_request(handler, request)
         
-        # 只有当 response 不是 StreamingResponse 时才打印
-        if not isinstance(response, StreamingResponse):
-            print("---------------chat_completions output>-----------------")
-            print(response)
-            print("----------------^-----------------")
-        else:
-            print("---------------chat_completions output (streaming)>-----------------")
-            print("Streaming response will be handled by handle_stream_response.")
-            print("----------------^-----------------")
+        # # 只有当 response 不是 StreamingResponse 时才打印
+        # if not isinstance(response, StreamingResponse):
+        #     logger.info("---------------chat_completions output>-----------------")
+        #     logger.info(response)
+        #     logger.info("----------------^-----------------")
+        # else:
+        #     logger.info("---------------chat_completions output (streaming)>-----------------")
+        #     logger.info("Streaming response will be handled by handle_stream_response.")
+        #     logger.info("----------------^-----------------")
             
         return response
     except Exception as e:
-        logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
+        logger.error(f"Error processing chat completion request: {(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 @router.post("/v1/embeddings")
@@ -191,43 +191,43 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
     """Handle streaming response generation (OpenAI-compatible)."""
     chat_index = get_id()
     created_time = int(time.time())
-    try:
-        finish_reason = "stop"
-        index = -1
-        # First chunk: role-only delta, as per OpenAI
-        first_chunk = ChatCompletionChunk(
-            id=chat_index,
-            object="chat.completion.chunk",
-            created=created_time,
-            model=model,
-            choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
-        )
-        yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
-        async for chunk in generator:
-            if chunk:
-                if isinstance(chunk, str):
-                    response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
-                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-                else:
-                    finish_reason = "tool_calls"
-                    if "name" in chunk and chunk["name"]:
-                        index += 1
-                    payload = {
-                        "index": index,
-                        **chunk
-                    }
-                    response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
-                    yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
-    except Exception as e:
-        logger.error(f"Error in stream wrapper: {str(e)}")
-        error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-        # Yield error as last chunk before [DONE]
-        yield f"data: {json.dumps(error_response)}\n\n"
-    finally:
+    # try:
+    finish_reason = "stop"
+    index = -1
+    # First chunk: role-only delta, as per OpenAI
+    first_chunk = ChatCompletionChunk(
+        id=chat_index,
+        object="chat.completion.chunk",
+        created=created_time,
+        model=model,
+        choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
+    )
+    yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
+    async for chunk in generator:
+        if chunk:
+            if isinstance(chunk, str):
+                response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
+                yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+            else:
+                finish_reason = "tool_calls"
+                if "name" in chunk and chunk["name"]:
+                    index += 1
+                payload = {
+                    "index": index,
+                    **chunk
+                }
+                response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
+                yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
+    # except Exception as e:
+    #     logger.error(f"Error in stream wrapper: {str(e)}")
+    #     error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+    #     # Yield error as last chunk before [DONE]
+    #     yield f"data: {json.dumps(error_response)}\n\n"
+    # finally:
         # Final chunk: finish_reason and [DONE], as per OpenAI
-        final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
-        yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
-        yield "data: [DONE]\n\n"
+    final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
+    yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
+    yield "data: [DONE]\n\n"
 
 async def process_vision_request(handler, request: ChatCompletionRequest):
     """Process vision-specific requests."""
@@ -265,11 +265,11 @@ def get_tool_call_id():
     random_suffix = random.randint(0, 999999)
     return f"call_{timestamp}{random_suffix:06d}"
 
-def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str) -> ChatCompletionResponse:
+def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> ChatCompletionResponse:
     """Format the final non-streaming response."""
     
     if isinstance(response, str):
-        final_response = ChatCompletionResponse(
+        return ChatCompletionResponse(
             id=get_id(),
             object="chat.completion",
             created=int(time.time()),
@@ -281,6 +281,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             )]
         )
     
+    # If not a string, assume it's a dictionary
     reasoning_content = response.get("reasoning_content", None)
     tool_calls = response.get("tool_calls", [])
     tool_call_responses = []
@@ -299,8 +300,11 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     
     if len(tool_calls) > 0:
         message = Message(role="assistant", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+        finish_reason = "tool_calls"
     else:
-        message = Message(role="assistant", content=response, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+        # If no tool calls, content should be present in the dictionary response
+        message = Message(role="assistant", content=response.get("content", ""), reasoning_content=reasoning_content)
+        finish_reason = "stop"
     
     return ChatCompletionResponse(
         id=get_id(),
@@ -310,6 +314,6 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         choices=[Choice(
             index=0,
             message=message,
-            finish_reason="tool_calls"
+            finish_reason=finish_reason
         )]
     )

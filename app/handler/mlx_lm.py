@@ -2,7 +2,8 @@ import asyncio
 import time
 import uuid
 from http import HTTPStatus
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+import json
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 
 from fastapi import HTTPException
 from loguru import logger
@@ -79,49 +80,50 @@ class MLXLMHandler:
         """
         request_id = f"text-{uuid.uuid4()}"
         
-        try:
-            chat_messages, model_params = await self._prepare_text_request(request)
-            request_data = {
-                "messages": chat_messages,
-                "stream": True,
-                **model_params
-            }
-            response_generator = await self.request_queue.submit(request_id, request_data)
+        # try:
+        chat_messages, model_params = await self._prepare_text_request(request)
+        tools = model_params.get("chat_template_kwargs", {}).get("tools", [])
+        enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+
+        response_generator = self.model(
+            messages=chat_messages,
+            stream=True,
+            **model_params
+        )
+
+        tool_parser, thinking_parser = get_parser(self.model_type)
+        if enable_thinking and thinking_parser:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    parsed_chunk, is_finish = thinking_parser.parse_stream(chunk_obj.text)
+                    if parsed_chunk:
+                        if isinstance(parsed_chunk, dict):
+                            yield json.dumps(parsed_chunk) + "\n"
+                        else:
+                            yield parsed_chunk
+                    if is_finish:
+                        break
+
+        if self.enable_tool_output and tools and tool_parser:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    parsed_chunk = tool_parser.parse_stream(chunk_obj.text)
+                    if parsed_chunk:
+                        if isinstance(parsed_chunk, dict):
+                            yield json.dumps(parsed_chunk) + "\n"
+                        else:
+                            yield parsed_chunk
+        else:
+            for chunk_obj in response_generator:
+                if chunk_obj:
+                    yield chunk_obj.text
             
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
+        # except Exception as e:
+        #     logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
+        #     content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+        #     raise HTTPException(status_code=500, detail=content)
 
-            tool_parser, thinking_parser = get_parser(self.model_type)
-            if enable_thinking and thinking_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
-                        if is_finish:
-                            break
-
-            if self.enable_tool_output and tools and tool_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk = tool_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
-            else:
-                for chunk in response_generator:
-                    if chunk:
-                        yield chunk.text
-            
-        except asyncio.QueueFull:
-            logger.error("Too many requests. Service is at capacity.")
-            content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
-            raise HTTPException(status_code=429, detail=content)
-        except Exception as e:
-            logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
-            content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            raise HTTPException(status_code=500, detail=content)
-
-    async def generate_text_response(self, request: ChatCompletionRequest) -> str:
+    async def generate_text_response(self, request: ChatCompletionRequest) -> Union[str, Dict[str, Any]]:
         """
         Generate a complete response for text-only chat completion requests.
         Uses the request queue for handling concurrent requests.
@@ -230,17 +232,15 @@ class MLXLMHandler:
 
             # Extract request parameters
             messages = request_data.get("messages", [])
-            stream = request_data.get("stream", False)
             
             # Remove these keys from model_params
             model_params = request_data.copy()
             model_params.pop("messages", None)
-            model_params.pop("stream", None)
             
             # Call the model
             response = self.model(
                 messages=messages,
-                stream=stream,
+                stream=False, # Ensure stream is always False for _process_request
                 **model_params
             )
            
@@ -299,7 +299,8 @@ class MLXLMHandler:
             tools = request.tools or None
             chat_template_kwargs = request.chat_template_kwargs
             if tools:
-                chat_template_kwargs.tools = tools
+                # Convert each tool dictionary in the list to a JSON string
+                chat_template_kwargs.tools = [json.dumps(tool) for tool in tools]
 
             model_params = {
                 "temperature": temperature,
@@ -307,7 +308,7 @@ class MLXLMHandler:
                 "frequency_penalty": frequency_penalty,
                 "presence_penalty": presence_penalty,
                 "max_tokens": max_tokens,
-                "tools": tools,
+                "tools": tools, # Keep original tools for internal logic if needed
                 "chat_template_kwargs": chat_template_kwargs.model_dump()
             }
             
