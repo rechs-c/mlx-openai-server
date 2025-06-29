@@ -68,7 +68,7 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
     handler = raw_request.app.state.handler
     if handler is None:
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
-    
+
     logger.debug(f"Incoming chat completion request: {request.model_dump_json()}") # Added logging
     try:
         # Check if this is a vision request
@@ -87,9 +87,9 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         
         # Process the request based on type
         return await process_vision_request(handler, request) if is_vision_request \
-               else await process_text_request(handler, request)
+                else await process_text_request(handler, request)
     except Exception as e:
-        logger.error("Error processing chat completion request: {}", e, exc_info=True)
+        logger.error(f"Error processing chat completion request: {e}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 @router.post("/v1/embeddings")
@@ -103,7 +103,7 @@ async def embeddings(request: EmbeddingRequest, raw_request: Request):
         embeddings = await handler.generate_embeddings_response(request)
         return create_response_embeddings(embeddings, request.model)
     except Exception as e:
-        logger.error("Error processing embedding request: {}", e, exc_info=True)
+        logger.error(f"Error processing embedding request: {e}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
@@ -231,7 +231,7 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
                     logger.debug(f"Sending unknown stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
-        logger.error("Error in stream wrapper: {}", e, exc_info=True) # Modified logging
+        logger.error(f"Error in stream wrapper: {e}", exc_info=True) # Modified logging
         error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
         # Yield error as last chunk before [DONE]
         yield f"data: {json.dumps(error_response)}\n\n"
