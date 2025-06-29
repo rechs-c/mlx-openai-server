@@ -30,7 +30,7 @@ def configure_logging():
                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
                "✦ <level>{message}</level>",
         colorize=True,
-        level="INFO"
+        level="DEBUG"
     )
 
 # Apply logging configuration

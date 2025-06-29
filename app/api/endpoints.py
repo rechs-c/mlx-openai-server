@@ -69,11 +69,13 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
     if handler is None:
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
+    logger.debug(f"Incoming chat completion request: {request.model_dump_json()}") # Added logging
     try:
         # Check if this is a vision request
         is_vision_request = request.is_vision_request()
         # If it's a vision request but the handler is MLXLMHandler (text-only), reject it
         if is_vision_request and isinstance(handler, MLXLMHandler):
+            logger.warning("Vision request received for text-only model.") # Added logging
             return JSONResponse(
                 content=create_error_response(
                     "Vision requests are not supported with text-only models. Use a VLM model type instead.", 
@@ -195,14 +197,17 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
         yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
         
         async for chunk in generator:
+            logger.debug(f"Processing stream chunk from handler: {chunk}") # Added logging
             if chunk:
                 if "content" in chunk:
                     # 普通文本
                     response_chunk = create_response_chunk(chunk["content"], model, chat_id=chat_index, created_time=created_time)
+                    logger.debug(f"Sending content stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 elif "reasoning_content" in chunk:
                     # 推理内容
                     response_chunk = create_response_chunk({"reasoning_content": chunk["reasoning_content"]}, model, chat_id=chat_index, created_time=created_time)
+                    logger.debug(f"Sending reasoning content stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 elif "function" in chunk: # 检查是否有 function 键，表示是工具调用
                     # mlx_lm.py 已经将工具调用分段，这里直接传递给 create_response_chunk
@@ -216,21 +221,24 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
                         "arguments": chunk["function"].get("arguments", "")
                     }
                     response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
+                    logger.debug(f"Sending tool call stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                     finish_reason = "tool_calls" # 如果有工具调用，结束原因为 tool_calls
                 else:
                     logger.warning(f"Unknown chunk format from handler: {chunk}")
                     # 兜底处理，避免中断流
                     response_chunk = create_response_chunk(str(chunk), model, chat_id=chat_index, created_time=created_time)
+                    logger.debug(f"Sending unknown stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
-        logger.error(f"Error in stream wrapper: {str(e)}")
+        logger.error(f"Error in stream wrapper: {str(e)}", exc_info=True) # Added exc_info
         error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
         # Yield error as last chunk before [DONE]
         yield f"data: {json.dumps(error_response)}\n\n"
     finally:
         # Final chunk: finish_reason and [DONE], as per OpenAI
         final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
+        logger.debug(f"Sending final stream chunk to client: {final_chunk.model_dump()}") # Added logging
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
         yield "data: [DONE]\n\n"
 
@@ -309,7 +317,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
     else:
         message = Message(role="assistant", content=response, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
     
-    return ChatCompletionResponse(
+    final_response = ChatCompletionResponse( # Store in variable for logging
         id=get_id(),
         object="chat.completion",
         created=int(time.time()),
@@ -320,3 +328,5 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             finish_reason="tool_calls"
         )]
     )
+    logger.debug(f"Final non-streaming response: {final_response.model_dump_json()}") # Added logging
+    return final_response
