@@ -30,7 +30,7 @@ async def health(raw_request: Request):
     try:
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
+        logger.error("Health check failed: {}", e)
         return JSONResponse(content=create_error_response("Health check failed", "server_error", 500), status_code=500)
 
 @router.get("/v1/queue/stats")
@@ -49,7 +49,7 @@ async def queue_stats(raw_request: Request):
             "queue_stats": stats
         }
     except Exception as e:
-        logger.error(f"Failed to get queue stats: {str(e)}")
+        logger.error("Failed to get queue stats: {}", e)
         return JSONResponse(content=create_error_response("Failed to get queue stats", "server_error", 500), status_code=500)
         
 @router.get("/v1/models")
@@ -89,7 +89,7 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         return await process_vision_request(handler, request) if is_vision_request \
                else await process_text_request(handler, request)
     except Exception as e:
-        logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
+        logger.error("Error processing chat completion request: {}", e, exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 @router.post("/v1/embeddings")
@@ -103,7 +103,7 @@ async def embeddings(request: EmbeddingRequest, raw_request: Request):
         embeddings = await handler.generate_embeddings_response(request)
         return create_response_embeddings(embeddings, request.model)
     except Exception as e:
-        logger.error(f"Error processing embedding request: {str(e)}", exc_info=True)
+        logger.error("Error processing embedding request: {}", e, exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
@@ -231,7 +231,7 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
                     logger.debug(f"Sending unknown stream chunk to client: {response_chunk.model_dump()}") # Added logging
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
-        logger.error(f"Error in stream wrapper: {str(e)}", exc_info=True) # Added exc_info
+        logger.error("Error in stream wrapper: {}", e, exc_info=True) # Modified logging
         error_response = create_error_response(str(e), "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
         # Yield error as last chunk before [DONE]
         yield f"data: {json.dumps(error_response)}\n\n"

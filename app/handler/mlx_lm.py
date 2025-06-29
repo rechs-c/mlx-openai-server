@@ -161,6 +161,7 @@ class MLXLMHandler:
         """
         request_id = f"text-{uuid.uuid4()}"
         
+        logger.debug(f"Generating text response for request ID: {request_id}, Request: {request.model_dump_json()}") # Added logging
         try:
             chat_messages, model_params = await self._prepare_text_request(request)
             request_data = {
@@ -169,6 +170,8 @@ class MLXLMHandler:
                 **model_params
             }
             response = await self.request_queue.submit(request_id, request_data)
+            logger.debug(f"Raw response from MLX model for request ID {request_id}: {response}") # Added logging
+
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
             if not tools and not enable_thinking:
@@ -190,6 +193,7 @@ class MLXLMHandler:
                 parsed_response["tool_calls"] = tool_response
             parsed_response["content"] = response
             
+            logger.debug(f"Parsed response for request ID {request_id}: {parsed_response}") # Added logging
             return parsed_response
             
         except asyncio.QueueFull:
@@ -197,7 +201,7 @@ class MLXLMHandler:
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            logger.error(f"Error in text response generation: {str(e)}")
+            logger.error("Error in text response generation for request ID {}: {}", request_id, e, exc_info=True) # Modified logging
             content = create_error_response(f"Failed to generate text response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
         
@@ -219,14 +223,16 @@ class MLXLMHandler:
                 "input": request.input,
                 "model": request.model
             }
+            logger.debug(f"Generating embeddings for request ID: {request_id}, Request: {request.model_dump_json()}") # Added logging
 
             # Submit to the request queue
             response = await self.request_queue.submit(request_id, request_data)
+            logger.debug(f"Embeddings response for request ID {request_id}: {response}") # Added logging
 
             return response
 
         except Exception as e:
-            logger.error(f"Error in embeddings generation: {str(e)}")
+            logger.error("Error in embeddings generation for request ID {}: {}", request_id, e, exc_info=True) # Modified logging
             content = create_error_response(f"Failed to generate embeddings: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
         
@@ -270,7 +276,7 @@ class MLXLMHandler:
             return response
             
         except Exception as e:
-            logger.error(f"Error processing text request: {str(e)}")
+            logger.error("Error processing text request: {}", e) # Modified logging
             # Clean up on error
             gc.collect()
             raise
@@ -301,7 +307,7 @@ class MLXLMHandler:
                 await self.request_queue.stop()
             logger.info("MLXLMHandler cleanup completed successfully")
         except Exception as e:
-            logger.error(f"Error during MLXLMHandler cleanup: {str(e)}")
+            logger.error("Error during MLXLMHandler cleanup: {}", e) # Modified logging
             raise
 
     async def _prepare_text_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, str]], Dict[str, Any]]:
@@ -347,6 +353,6 @@ class MLXLMHandler:
             return chat_messages, model_params
         
         except Exception as e:
-            logger.error(f"Failed to prepare text request: {str(e)}")
+            logger.error("Failed to prepare text request: {}", e) # Modified logging
             content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
             raise HTTPException(status_code=400, detail=content)
