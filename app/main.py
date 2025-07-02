@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import gc
-import os # Import os module
+# import os # Import os module
 import time
 from contextlib import asynccontextmanager
 
@@ -26,14 +26,14 @@ except ImportError:
 # Configure loguru
 logger.remove()  # Remove default handler
 # Set log path to a directory in the user's home folder
-log_path = os.path.join(os.path.expanduser("~"), "mlx-openai-server-logs", "app.log")
-logger.add(
-    log_path,
-    rotation="500 MB",
-    retention="10 days",
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-)
+# log_path = os.path.join(os.path.expanduser("~"), "mlx-openai-server-logs", "app.log")
+# logger.add(
+#     log_path,
+#     rotation="500 MB",
+#     retention="10 days",
+#     level="INFO",
+#     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+# )
 logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 
 def parse_args():
