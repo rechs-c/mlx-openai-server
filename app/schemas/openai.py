@@ -120,8 +120,8 @@ class ChatCompletionRequestBase(BaseModel):
         if v is not None:
             if v <= 0:
                 raise ValueError("max_tokens must be positive")
-            if v > 4096:  # Typical limit for GPT-4
-                raise ValueError("max_tokens too high")
+            # if v > 4096:  # Typical limit for GPT-4
+            #     raise ValueError("max_tokens too high")
         return v
 
     def is_vision_request(self) -> bool:
