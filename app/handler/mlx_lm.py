@@ -229,6 +229,9 @@ class MLXLMHandler:
             model_params = request_data.copy()
             model_params.pop("messages", None)
             model_params.pop("stream", None)
+            logger.info("=================================")
+            logger.info(messages)
+            logger.info("=================================")
             
             # Call the model
             response = self.model(
