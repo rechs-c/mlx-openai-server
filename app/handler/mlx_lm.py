@@ -314,10 +314,25 @@ class MLXLMHandler:
             # Format chat messages
             chat_messages = []
             for message in request.messages:
-                chat_messages.append({
-                    "role": message.role,
-                    "content": message.content
-                })
+                # Handle content that might be a list of VisionContentItem
+                if isinstance(message.content, list):
+                    processed_content = ""
+                    for item in message.content:
+                        if item.type == "text" and item.text:
+                            processed_content += item.text
+                        # Optionally handle image_url if needed, but for text-only model, we might ignore or log it
+                        elif item.type == "image_url":
+                            logger.warning(f"Ignoring image_url content for text-only model: {item.image_url.url}")
+                    chat_messages.append({
+                        "role": message.role,
+                        "content": processed_content
+                    })
+                else:
+                    # Content is already a string
+                    chat_messages.append({
+                        "role": message.role,
+                        "content": message.content
+                    })
             
             return chat_messages, model_params
         
