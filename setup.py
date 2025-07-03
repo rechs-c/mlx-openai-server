@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "git+https://github.com/Blaizzy/mlx-vlm",
+        "mlx-vlm==0.2.0",
         "mlx-lm==0.25.3",
         "fastapi",
         "uvicorn",
