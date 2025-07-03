@@ -13,8 +13,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.1.27",
-        "mlx-lm==0.25.2",
+        "mlx-vlm==0.2.0",
+        "mlx-lm==0.25.3",
         "fastapi",
         "uvicorn",
         "Pillow",
