@@ -4,6 +4,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from http import HTTPStatus
+import gc
 
 from fastapi import HTTPException
 from loguru import logger
@@ -285,6 +286,8 @@ class MLXVLMHandler:
                 await self.request_queue.stop()
             if hasattr(self, 'image_processor'):
                 await self.image_processor.cleanup()
+            # Force garbage collection after cleanup
+            gc.collect()
             logger.info("MLXVLMHandler cleanup completed successfully")
         except Exception as e:
             logger.error(f"Error during MLXVLMHandler cleanup: {str(e)}")
@@ -303,7 +306,10 @@ class MLXVLMHandler:
         try:
             # Check if the request is for embeddings
             if request_data.get("type") == "embeddings":
-                return self.model.get_embeddings(request_data["input"], request_data["images"])
+                result = self.model.get_embeddings(request_data["input"], request_data["images"])
+                # Force garbage collection after embeddings
+                gc.collect()
+                return result
             
             # Extract request parameters
             images = request_data.get("images", [])
@@ -327,10 +333,14 @@ class MLXVLMHandler:
                 **model_params
             )
 
+            # Force garbage collection after model inference
+            gc.collect()
             return response
             
         except Exception as e:
             logger.error(f"Error processing vision request: {str(e)}")
+            # Clean up on error
+            gc.collect()
             raise
 
     async def get_queue_stats(self) -> Dict[str, Any]:

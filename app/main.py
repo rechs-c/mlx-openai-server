@@ -15,6 +15,13 @@ from app.handler.mlx_lm import MLXLMHandler
 from app.api.endpoints import router
 from app.version import __version__
 
+# Try to import MLX for memory management
+try:
+    import mlx.core as mx
+    MLX_AVAILABLE = True
+except ImportError:
+    MLX_AVAILABLE = False
+
 # Configure loguru
 logger.remove()  # Remove default handler
 logger.add(
@@ -65,8 +72,14 @@ def create_lifespan(config_args):
         except Exception as e:
             logger.error(f"Failed to initialize MLX handler: {str(e)}")
             raise
+        
+        # Initial memory cleanup
+        if MLX_AVAILABLE:
+            mx.clear_cache()
         gc.collect()
+        
         yield
+        
         # Shutdown
         logger.info("Shutting down application")
         if hasattr(app.state, "handler") and app.state.handler:
@@ -77,6 +90,11 @@ def create_lifespan(config_args):
                 logger.info("Resources cleaned up successfully")
             except Exception as e:
                 logger.error(f"Error during shutdown: {str(e)}")
+        
+        # Final memory cleanup
+        if MLX_AVAILABLE:
+            mx.clear_cache()
+        gc.collect()
     
     return lifespan
 
@@ -111,6 +129,20 @@ async def setup_server(args) -> uvicorn.Config:
         response = await call_next(request)
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
+        
+        # Periodic memory cleanup for long-running processes
+        if hasattr(request.app.state, 'request_count'):
+            request.app.state.request_count += 1
+        else:
+            request.app.state.request_count = 1
+        
+        # Clean up memory every 50 requests
+        if request.app.state.request_count % 50 == 0:
+            if MLX_AVAILABLE:
+                mx.clear_cache()
+            gc.collect()
+            logger.debug(f"Performed memory cleanup after {request.app.state.request_count} requests")
+        
         return response
     
     @app.exception_handler(Exception)

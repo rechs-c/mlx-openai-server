@@ -1,6 +1,7 @@
 import asyncio
 import time
 from typing import Any, Dict, Optional, Callable, Awaitable, TypeVar, Generic
+import gc
 from loguru import logger
 
 T = TypeVar('T')
@@ -85,8 +86,24 @@ class RequestQueue:
         for request in pending_requests:
             if not request.future.done():
                 request.future.cancel()
+            # Clean up request data
+            try:
+                if hasattr(request, 'data'):
+                    del request.data
+            except:
+                pass
                 
         self.active_requests.clear()
+        
+        # Clear the queue
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        
+        # Force garbage collection after cleanup
+        gc.collect()
         logger.info("Stopped request queue")
         
     async def _worker_loop(self, processor: Callable[[Any], Awaitable[Any]]):
@@ -141,8 +158,18 @@ class RequestQueue:
                 logger.error(f"Error processing request {request.request_id}: {str(e)}")
                 
             finally:
-                # Remove from active requests
-                self.active_requests.pop(request.request_id, None)
+                # Always remove from active requests, even if an error occurred
+                removed_request = self.active_requests.pop(request.request_id, None)
+                if removed_request:
+                    # Clean up the request object
+                    try:
+                        if hasattr(removed_request, 'data'):
+                            del removed_request.data
+                    except:
+                        pass
+                # Force garbage collection periodically to prevent memory buildup
+                if len(self.active_requests) % 10 == 0:  # Every 10 requests
+                    gc.collect()
                 
     async def enqueue(self, request_id: str, data: Any) -> RequestItem:
         """

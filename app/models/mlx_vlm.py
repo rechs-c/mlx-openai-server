@@ -3,6 +3,7 @@ from mlx_vlm import load
 from mlx_vlm.prompt_utils import apply_chat_template
 from mlx_vlm.utils import load_config, generate, stream_generate, prepare_inputs
 import mlx.core as mx
+import gc
 
 
 # Default model parameters
@@ -111,51 +112,90 @@ class MLX_VLM:
         if images is None:
             images = []
 
-        # Text-only batch
-        if not images:
-            # Batch tokenize and pad
-            tokenized = [self.processor.tokenizer.encode(self._format_prompt(p, 0), add_special_tokens=True) for p in prompts]
-            max_len = max(len(t) for t in tokenized)
-            pad_id = self.processor.tokenizer.pad_token_id or self.processor.tokenizer.eos_token_id
-            batch_input_ids = [t + [pad_id] * (max_len - len(t)) for t in tokenized]
-            batch_input_ids = mx.array(batch_input_ids)
+        try:
+            # Text-only batch
+            if not images:
+                # Batch tokenize and pad
+                tokenized = [self.processor.tokenizer.encode(self._format_prompt(p, 0), add_special_tokens=True) for p in prompts]
+                max_len = max(len(t) for t in tokenized)
+                pad_id = self.processor.tokenizer.pad_token_id or self.processor.tokenizer.eos_token_id
+                batch_input_ids = [t + [pad_id] * (max_len - len(t)) for t in tokenized]
+                batch_input_ids = mx.array(batch_input_ids)
 
-            # Run in batches
+                # Run in batches
+                all_embeddings = []
+                try:
+                    for i in range(0, len(prompts), batch_size):
+                        batch_ids = batch_input_ids[i:i+batch_size]
+                        embeddings = self.model.language_model.model(batch_ids)
+                        pooled = self._apply_pooling_strategy(embeddings)
+                        if normalize:
+                            pooled = self._apply_l2_normalization(pooled)
+                        all_embeddings.extend(pooled.tolist())
+                        
+                        # Clean up intermediate arrays
+                        del embeddings, pooled
+                        mx.clear_cache()
+                        
+                finally:
+                    # Clean up batch arrays
+                    del batch_input_ids
+                    mx.clear_cache()
+                    gc.collect()
+                    
+                return all_embeddings
+
+            # Image+prompt batch
+            if len(images) != len(prompts):
+                raise ValueError("If images are provided, must be same length as prompts (one image per prompt)")
+
             all_embeddings = []
             for i in range(0, len(prompts), batch_size):
-                batch_ids = batch_input_ids[i:i+batch_size]
-                embeddings = self.model.language_model.model(batch_ids)
-                pooled = self._apply_pooling_strategy(embeddings)
-                if normalize:
-                    pooled = self._apply_l2_normalization(pooled)
-                all_embeddings.extend(pooled.tolist())
+                batch_prompts = prompts[i:i+batch_size]
+                batch_images = images[i:i+batch_size]
+                formatted_prompts = [self._format_prompt(p, 1) for p in batch_prompts]
+                
+                try:
+                    inputs = prepare_inputs(
+                        self.processor,
+                        batch_images,
+                        formatted_prompts,
+                        getattr(self.model.config, "image_token_index", None)
+                    )
+                    input_ids = inputs["input_ids"]
+                    pixel_values = inputs.get("pixel_values", None)
+                    image_grid_thw = inputs.get("image_grid_thw", None)
+                    inputs_embeds = self.model.get_input_embeddings(input_ids, pixel_values, image_grid_thw)
+                    embeddings = self.model.language_model.model(None, inputs_embeds=inputs_embeds)
+                    pooled = self._apply_pooling_strategy(embeddings)
+                    if normalize:
+                        pooled = self._apply_l2_normalization(pooled)
+                    all_embeddings.extend(pooled.tolist())
+                finally:
+                    # Clean up batch variables
+                    if 'inputs' in locals():
+                        del inputs
+                    if 'input_ids' in locals():
+                        del input_ids
+                    if 'pixel_values' in locals():
+                        del pixel_values
+                    if 'image_grid_thw' in locals():
+                        del image_grid_thw
+                    if 'inputs_embeds' in locals():
+                        del inputs_embeds
+                    if 'embeddings' in locals():
+                        del embeddings
+                    if 'pooled' in locals():
+                        del pooled
+                    mx.clear_cache()
+                    gc.collect()
+                    
             return all_embeddings
-
-        # Image+prompt batch
-        if len(images) != len(prompts):
-            raise ValueError("If images are provided, must be same length as prompts (one image per prompt)")
-
-        all_embeddings = []
-        for i in range(0, len(prompts), batch_size):
-            batch_prompts = prompts[i:i+batch_size]
-            batch_images = images[i:i+batch_size]
-            formatted_prompts = [self._format_prompt(p, 1) for p in batch_prompts]
-            inputs = prepare_inputs(
-                self.processor,
-                batch_images,
-                formatted_prompts,
-                getattr(self.model.config, "image_token_index", None)
-            )
-            input_ids = inputs["input_ids"]
-            pixel_values = inputs.get("pixel_values", None)
-            image_grid_thw = inputs.get("image_grid_thw", None)
-            inputs_embeds = self.model.get_input_embeddings(input_ids, pixel_values, image_grid_thw)
-            embeddings = self.model.language_model.model(None, inputs_embeds=inputs_embeds)
-            pooled = self._apply_pooling_strategy(embeddings)
-            if normalize:
-                pooled = self._apply_l2_normalization(pooled)
-            all_embeddings.extend(pooled.tolist())
-        return all_embeddings
+        except Exception as e:
+            # Clean up on error
+            mx.clear_cache()
+            gc.collect()
+            raise
 
     def _format_prompt(self, prompt: str, n_images: int) -> str:
         """Format a single prompt using the chat template."""

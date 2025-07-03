@@ -3,6 +3,7 @@ import time
 import uuid
 from http import HTTPStatus
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+import gc
 
 from fastapi import HTTPException
 from loguru import logger
@@ -215,7 +216,10 @@ class MLXLMHandler:
         try:
             # Check if the request is for embeddings
             if request_data.get("type") == "embeddings":
-                return self.model.get_embeddings(request_data["input"])
+                result = self.model.get_embeddings(request_data["input"])
+                # Force garbage collection after embeddings
+                gc.collect()
+                return result
 
             # Extract request parameters
             messages = request_data.get("messages", [])
@@ -232,11 +236,15 @@ class MLXLMHandler:
                 stream=stream,
                 **model_params
             )
-           
+            
+            # Force garbage collection after model inference
+            gc.collect()
             return response
             
         except Exception as e:
             logger.error(f"Error processing text request: {str(e)}")
+            # Clean up on error
+            gc.collect()
             raise
 
     async def get_queue_stats(self) -> Dict[str, Any]:
