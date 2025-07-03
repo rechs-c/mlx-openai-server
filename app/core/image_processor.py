@@ -63,6 +63,9 @@ class ImageProcessor:
         for url, _ in sorted_items[:to_remove]:
             self._hash_cache.pop(url, None)
             self._cache_access_times.pop(url, None)
+        
+        # Force garbage collection after cache eviction
+        gc.collect()
 
     def _resize_image_keep_aspect_ratio(self, image: Image.Image, max_size: int = 448) -> Image.Image:
         width, height = image.size

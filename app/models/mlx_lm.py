@@ -117,11 +117,11 @@ class MLX_LM:
                     if 'pooled_embedding' in locals():
                         del pooled_embedding
                     # Force MLX garbage collection
-                    mx.metal.clear_cache()
+                    mx.clear_cache()
                     gc.collect()
         except Exception as e:
             # Clean up on error
-            mx.metal.clear_cache()
+            mx.clear_cache()
             gc.collect()
             raise
 

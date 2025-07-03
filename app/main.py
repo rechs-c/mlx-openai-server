@@ -75,7 +75,7 @@ def create_lifespan(config_args):
         
         # Initial memory cleanup
         if MLX_AVAILABLE:
-            mx.metal.clear_cache()
+            mx.clear_cache()
         gc.collect()
         
         yield
@@ -93,7 +93,7 @@ def create_lifespan(config_args):
         
         # Final memory cleanup
         if MLX_AVAILABLE:
-            mx.metal.clear_cache()
+            mx.clear_cache()
         gc.collect()
     
     return lifespan
@@ -139,7 +139,7 @@ async def setup_server(args) -> uvicorn.Config:
         # Clean up memory every 50 requests
         if request.app.state.request_count % 50 == 0:
             if MLX_AVAILABLE:
-                mx.metal.clear_cache()
+                mx.clear_cache()
             gc.collect()
             logger.debug(f"Performed memory cleanup after {request.app.state.request_count} requests")
         

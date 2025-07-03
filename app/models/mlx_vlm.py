@@ -135,12 +135,12 @@ class MLX_VLM:
                         
                         # Clean up intermediate arrays
                         del embeddings, pooled
-                        mx.metal.clear_cache()
+                        mx.clear_cache()
                         
                 finally:
                     # Clean up batch arrays
                     del batch_input_ids
-                    mx.metal.clear_cache()
+                    mx.clear_cache()
                     gc.collect()
                     
                 return all_embeddings
@@ -187,13 +187,13 @@ class MLX_VLM:
                         del embeddings
                     if 'pooled' in locals():
                         del pooled
-                    mx.metal.clear_cache()
+                    mx.clear_cache()
                     gc.collect()
                     
             return all_embeddings
         except Exception as e:
             # Clean up on error
-            mx.metal.clear_cache()
+            mx.clear_cache()
             gc.collect()
             raise
 
