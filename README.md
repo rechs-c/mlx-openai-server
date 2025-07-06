@@ -676,6 +676,14 @@ The repository includes example notebooks to help you get started with different
     </a>
   </p>
 
+- **audio_examples.ipynb**: A comprehensive guide to audio processing capabilities with MLX Server, including:
+  - Setting up connection to MLX Server for audio processing
+  - Loading and encoding audio files for API transmission
+  - Sending audio input to multimodal models for analysis
+  - Combining audio with text prompts for rich, context-aware responses
+  - Exploring different types of audio analysis prompts
+  - Understanding audio transcription and content analysis capabilities
+
 
 ## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.
