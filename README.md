@@ -108,6 +108,40 @@ Follow these steps to set up the MLX-powered server:
     pip install -e .
     ```
 
+### Using Conda (Recommended)
+
+For better environment management and to avoid architecture issues, we recommend using conda:
+
+1. **Install conda** (if not already installed):
+    ```bash
+    mkdir -p ~/miniconda3
+    curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -o ~/miniconda3/miniconda.sh
+    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+    rm ~/miniconda3/miniconda.sh
+    source ~/miniconda3/bin/activate
+    conda init --all
+    ```
+
+2. **Create a new conda environment** with Python 3.11:
+    ```bash
+    conda create -n mlx-server python=3.11
+    conda activate mlx-server
+    ```
+
+3. **Install the package**:
+    ```bash
+    # Option 1: Install from PyPI
+    pip install mlx-openai-server
+
+    # Option 2: Install directly from GitHub
+    pip install git+https://github.com/cubist38/mlx-openai-server.git
+    
+    # Option 3: Clone and install in development mode
+    git clone https://github.com/cubist38/mlx-openai-server.git
+    cd mlx-openai-server
+    pip install -e .
+    ```
+
 ### Troubleshooting
 **Issue:** My OS and Python versions meet the requirements, but `pip` cannot find a matching distribution.
 
