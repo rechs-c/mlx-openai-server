@@ -4,7 +4,7 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 ## Description
-This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based vision and language models locally with an OpenAI-compatible interface.
+This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based multimodal models locally with an OpenAI-compatible interface. The server supports text, vision, and audio processing capabilities.
 
 > **Note:** This project currently supports **MacOS with M-series chips** only as it specifically leverages MLX, Apple's framework optimized for Apple Silicon.
 
@@ -33,7 +33,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ## Key Features
 - 🚀 **Fast, local OpenAI-compatible API** for MLX models
-- 🖼️ **Vision-language and text-only model support**
+- 🖼️ **Multimodal model support** with vision, audio, and text
 - 🔌 **Drop-in replacement** for OpenAI API in your apps
 - 📈 **Performance and queue monitoring endpoints**
 - 🧑‍💻 **Easy Python and CLI usage**
@@ -61,7 +61,7 @@ Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the ser
 
 This server implements the OpenAI API interface, allowing you to use it as a drop-in replacement for OpenAI's services in your applications. It supports:
 - Chat completions (both streaming and non-streaming)
-- Vision-language model interactions
+- Multimodal interactions (text, images, and audio)
 - Embeddings generation
 - Function calling and tool use
 - Standard OpenAI request/response formats
@@ -72,7 +72,7 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 The server supports two types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
-2. **Vision-language models** (`--model-type vlm`) - Uses the `mlx-vlm` library for multimodal models that can process both text and images
+2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
 
 ## Installation
 
@@ -160,7 +160,7 @@ To start the MLX server, activate the virtual environment and run the main appli
 source oai-compat-server/bin/activate
 python -m app.main \
   --model-path <path-to-mlx-model> \
-  --model-type <lm|vlm> \
+  --model-type <lm|multimodal> \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
@@ -168,7 +168,7 @@ python -m app.main \
 
 #### Server Parameters
 - `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository)
-- `--model-type`: Type of model to run (`lm` for text-only models, `vlm` for vision-language models). Default: `lm`
+- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models). Default: `lm`
 - `--max-concurrency`: Maximum number of concurrent requests (default: 1)
 - `--queue-timeout`: Request timeout in seconds (default: 300)
 - `--queue-size`: Maximum queue size for pending requests (default: 100)
@@ -187,13 +187,13 @@ python -m app.main \
   --queue-size 100
 ```
 
-> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and vision-language models (`--model-type vlm`).
+> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
 
-Vision-language model:
+Multimodal model:
 ```bash
 python -m app.main \
   --model-path mlx-community/llava-phi-3-vision-4bit \
-  --model-type vlm \
+  --model-type multimodal \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
@@ -210,7 +210,7 @@ mlx-openai-server launch --help
 
 To launch the server:
 ```bash
-mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|vlm> --port 8000
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --port 8000
 ```
 
 ### Using the API
@@ -236,7 +236,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-#### Vision-Language Model
+#### Multimodal Model (Vision + Audio)
 ```python
 import openai
 import base64
@@ -251,7 +251,7 @@ with open("image.jpg", "rb") as image_file:
     base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
 response = client.chat.completions.create(
-    model="local-vlm",  # Model name doesn't matter for local server
+    model="local-multimodal",  # Model name doesn't matter for local server
     messages=[
         {
             "role": "user",
@@ -266,6 +266,45 @@ response = client.chat.completions.create(
             ]
         }
     ]
+)
+print(response.choices[0].message.content)
+```
+
+#### Audio Input Support
+```python
+import openai
+import base64
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Load and encode audio file
+with open("audio.wav", "rb") as audio_file:
+    audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+
+response = client.chat.completions.create(
+    model="local-multimodal",  # Model name doesn't matter for local server
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "What's in this audio?"
+                },
+                {
+                    "type": "input_audio",
+                    "input_audio": {
+                        "data": audio_base64,
+                        "format": "wav"
+                    },
+                },
+            ],
+        }
+    ],
+    max_tokens=64,
 )
 print(response.choices[0].message.content)
 ```
@@ -369,7 +408,7 @@ batch_response = client.embeddings.create(
 print(f"Number of embeddings: {len(batch_response.data)}")
 ```
 
-2. Vision-language model embeddings:
+2. Multimodal model embeddings:
 ```python
 import openai
 import base64
@@ -395,17 +434,17 @@ def image_to_base64(image_path):
 image_uri = image_to_base64("images/attention.png")
 
 # Generate embeddings for text+image
-vision_embedding = client.embeddings.create(
+multimodal_embedding = client.embeddings.create(
     model="mlx-community/Qwen2.5-VL-3B-Instruct-4bit",
     input=["Describe the image in detail"],
     extra_body={"image_url": image_uri}
 )
-print(f"Vision embedding dimension: {len(vision_embedding.data[0].embedding)}")
+print(f"Multimodal embedding dimension: {len(multimodal_embedding.data[0].embedding)}")
 ```
 
 > **Note:** Replace the model name and image path as needed. The `extra_body` parameter is used to pass the image data URI to the API.
 
-> **Warning:** Make sure you're running the server with `--model-type vlm` when making vision requests. If you send a vision request to a server running with `--model-type lm` (text-only model), you'll receive a 400 error with a message that vision requests are not supported with text-only models.
+> **Warning:** Make sure you're running the server with `--model-type vlm` when making multimodal requests (with images or audio). If you send a multimodal request to a server running with `--model-type lm` (text-only model), you'll receive a 400 error with a message that multimodal requests are not supported with text-only models.
 
 ## Request Queue System
 
@@ -430,7 +469,7 @@ The queue system consists of two main components:
 
 2. **Model Handlers**: Specialized handlers for different model types:
    - `MLXLMHandler`: Manages text-only model requests
-   - `MLXVLMHandler`: Manages vision-language model requests
+   - `MLXVLMHandler`: Manages multimodal model requests
 
 ### Queue Monitoring
 
@@ -636,6 +675,14 @@ The repository includes example notebooks to help you get started with different
       <img src="https://img.youtube.com/vi/ANUEZkmR-0s/0.jpg" alt="RAG Demo" width="600">
     </a>
   </p>
+
+- **audio_examples.ipynb**: A comprehensive guide to audio processing capabilities with MLX Server, including:
+  - Setting up connection to MLX Server for audio processing
+  - Loading and encoding audio files for API transmission
+  - Sending audio input to multimodal models for analysis
+  - Combining audio with text prompts for rich, context-aware responses
+  - Exploring different types of audio analysis prompts
+  - Understanding audio transcription and content analysis capabilities
 
 
 ## Large Models

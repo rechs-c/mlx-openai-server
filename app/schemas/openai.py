@@ -10,9 +10,9 @@ class Config:
     """
     Configuration class holding the default model names for different types of requests.
     """
-    TEXT_MODEL = "gpt-4-turbo"          # Default model for text-based chat completions
-    VISION_MODEL = "gpt-4-vision-preview"  # Model used for vision-based requests
-    EMBEDDING_MODEL = "text-embedding-ada-002"  # Model used for generating embeddings
+    TEXT_MODEL = "local-text-model"          # Default model for text-based chat completions
+    MULTIMODAL_MODEL = "local-multimodal-model"  # Model used for multimodal requests
+    EMBEDDING_MODEL = "local-embedding-model"  # Model used for generating embeddings
 
 class ErrorResponse(BaseModel):
     object: str = Field("error", description="The object type, always 'error'.")
@@ -28,13 +28,28 @@ class ImageUrl(BaseModel):
     """
     url: str = Field(..., description="The image URL.")
 
-class VisionContentItem(BaseModel):
+class AudioInput(BaseModel):
     """
-    Represents a single content item in a message (text or image).
+    Represents an audio URL in a message.
     """
-    type: str = Field(..., description="The type of content, e.g., 'text' or 'image_url'.")
+    data: str = Field(..., description="The audio data.")
+    format: Literal["mp3", "wav"] = Field(..., description="The audio format.")
+
+class AudioContentItem(BaseModel):
+    """
+    Represents an audio content item in a message.
+    """
+    type: str = Field(..., description="The type of content, e.g., 'input_audio'.")
+    input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
+
+class MultimodalContentItem(BaseModel):
+    """
+    Represents a single content item in a message (text, image, or audio).
+    """
+    type: str = Field(..., description="The type of content, e.g., 'text', 'image_url', or 'input_audio'.")
     text: Optional[str] = Field(None, description="The text content, if type is 'text'.")
     image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
+    input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
 
 class FunctionCall(BaseModel):
     """
@@ -56,7 +71,7 @@ class Message(BaseModel):
     """
     Represents a message in a chat completion.
     """
-    content: Union[str, List[VisionContentItem]] = Field(None, description="The content of the message, either text or a list of vision content items.")
+    content: Union[str, List[MultimodalContentItem]] = Field(None, description="The content of the message, either text or a list of content items (vision, audio, or multimodal).")
     refusal: Optional[str] = Field(None, description="The refusal reason, if any.")
     role: Literal["system", "user", "assistant", "tool"] = Field(..., description="The role of the message sender.")
     function_call: Optional[FunctionCall] = Field(None, description="The function call, if any.")
@@ -123,21 +138,24 @@ class ChatCompletionRequestBase(BaseModel):
             if v > 4096:  # Typical limit for GPT-4
                 raise ValueError("max_tokens too high")
         return v
-
-    def is_vision_request(self) -> bool:
+    
+    def is_multimodal_request(self) -> bool:
         """
-        Check if the request includes image content, indicating a vision-based request.
+        Check if the request includes image or audio content, indicating a multimodal request.
         """
         for message in self.messages:
             content = message.content
             if isinstance(content, list):
                 for item in content:
-                    if hasattr(item, 'type') and item.type == "image_url":
-                        if hasattr(item, 'image_url') and item.image_url and item.image_url.url:
-                            logger.debug(f"Detected vision request with image: {item.image_url.url[:30]}...")
+                    if hasattr(item, 'type'):
+                        if item.type == "image_url" and hasattr(item, 'image_url') and item.image_url and item.image_url.url:
+                            logger.debug(f"Detected multimodal request with image: {item.image_url.url[:30]}...")
+                            return True
+                        elif item.type == "input_audio" and hasattr(item, 'input_audio') and item.input_audio and item.input_audio.data:
+                            logger.debug(f"Detected multimodal request with audio data")
                             return True
         
-        logger.debug(f"No images detected, treating as text-only request")
+        logger.debug(f"No images or audio detected, treating as text-only request")
         return False
     
 class ChatTemplateKwargs(BaseModel):

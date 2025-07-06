@@ -9,7 +9,7 @@ import gc
 from fastapi import HTTPException
 from loguru import logger
 
-from app.core.image_processor import ImageProcessor
+from app.core import ImageProcessor, AudioProcessor
 from app.core.queue import RequestQueue
 from app.models.mlx_vlm import MLX_VLM
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
@@ -17,8 +17,8 @@ from app.utils.errors import create_error_response
 
 class MLXVLMHandler:
     """
-    Handler class for making requests to the underlying MLX vision-language model service.
-    Provides caching, concurrent image processing, and robust error handling.
+    Handler class for making requests to the underlying MLX multimodal model service.
+    Provides caching, concurrent image processing, audio processing, and robust error handling.
     """
 
     def __init__(self, model_path: str, max_workers: int = 4, max_concurrency: int = 1):
@@ -33,10 +33,11 @@ class MLXVLMHandler:
         self.model_path = model_path
         self.model = MLX_VLM(model_path)
         self.image_processor = ImageProcessor(max_workers)
+        self.audio_processor = AudioProcessor(max_workers)
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
-        # Initialize request queue for vision and text tasks
-        # We use the same queue for both vision and text tasks for simplicity
+        # Initialize request queue for multimodal and text tasks
+        # We use the same queue for both multimodal and text tasks for simplicity
         # and to ensure we don't overload the model with too many concurrent requests
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
         
@@ -70,9 +71,9 @@ class MLXVLMHandler:
         await self.request_queue.start(self._process_request)
         logger.info("Initialized MLXHandler and started request queue")
 
-    async def generate_vision_stream(self, request: ChatCompletionRequest):
+    async def generate_multimodal_stream(self, request: ChatCompletionRequest):
         """
-        Generate a streaming response for vision-based chat completion requests.
+        Generate a streaming response for multimodal chat completion requests.
         
         Args:
             request: ChatCompletionRequest object containing the messages.
@@ -82,20 +83,21 @@ class MLXVLMHandler:
         """
         
         # Create a unique request ID
-        request_id = f"vision-{uuid.uuid4()}"
+        request_id = f"multimodal-{uuid.uuid4()}"
         
         try:
-            chat_messages, image_paths, model_params = await self._prepare_vision_request(request)
+            chat_messages, image_paths, audio_paths, model_params = await self._prepare_multimodal_request(request)
             
             # Create a request data object
             request_data = {
                 "images": image_paths,
+                "audios": audio_paths,
                 "messages": chat_messages,
                 "stream": True,
                 **model_params
             }
             
-            # Submit to the vision queue and get the generator
+            # Submit to the multimodal queue and get the generator
             response_generator = await self.request_queue.submit(request_id, request_data)
             
             # Process and yield each chunk asynchronously
@@ -110,13 +112,13 @@ class MLXVLMHandler:
             raise HTTPException(status_code=429, detail=content)
 
         except Exception as e:
-            logger.error(f"Error in vision stream generation for request {request_id}: {str(e)}")
-            content = create_error_response(f"Failed to generate vision stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in multimodal stream generation for request {request_id}: {str(e)}")
+            content = create_error_response(f"Failed to generate multimodal stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
 
-    async def generate_vision_response(self, request: ChatCompletionRequest):
+    async def generate_multimodal_response(self, request: ChatCompletionRequest):
         """
-        Generate a complete response for vision-based chat completion requests.
+        Generate a complete response for multimodal chat completion requests.
         Uses the request queue for handling concurrent requests.
         
         Args:
@@ -127,14 +129,15 @@ class MLXVLMHandler:
         """
         try:
             # Create a unique request ID
-            request_id = f"vision-{uuid.uuid4()}"
+            request_id = f"multimodal-{uuid.uuid4()}"
             
-            # Prepare the vision request
-            chat_messages, image_paths, model_params = await self._prepare_vision_request(request)
+            # Prepare the multimodal request
+            chat_messages, image_paths, audio_paths, model_params = await self._prepare_multimodal_request(request)
             
             # Create a request data object
             request_data = {
                 "images": image_paths,
+                "audios": audio_paths,
                 "messages": chat_messages,
                 "stream": False,
                 **model_params
@@ -149,8 +152,8 @@ class MLXVLMHandler:
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            logger.error(f"Error in vision response generation: {str(e)}")
-            content = create_error_response(f"Failed to generate vision response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in multimodal response generation: {str(e)}")
+            content = create_error_response(f"Failed to generate multimodal response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
 
     async def generate_text_stream(self, request: ChatCompletionRequest):
@@ -213,7 +216,7 @@ class MLXVLMHandler:
                 **model_params
             }
             
-            # Submit to the vision queue (reusing the same queue for text requests)
+            # Submit to the multimodal queue (reusing the same queue for text requests)
             response = await self.request_queue.submit(request_id, request_data)
             return response
             
@@ -272,6 +275,8 @@ class MLXVLMHandler:
         """Explicitly cleanup resources asynchronously."""
         if hasattr(self, 'image_processor'):
             await self.image_processor.cleanup()
+        if hasattr(self, 'audio_processor'):
+            await self.audio_processor.cleanup()
 
     async def cleanup(self):
         """
@@ -286,6 +291,8 @@ class MLXVLMHandler:
                 await self.request_queue.stop()
             if hasattr(self, 'image_processor'):
                 await self.image_processor.cleanup()
+            if hasattr(self, 'audio_processor'):
+                await self.audio_processor.cleanup()
             # Force garbage collection after cleanup
             gc.collect()
             logger.info("MLXVLMHandler cleanup completed successfully")
@@ -295,7 +302,7 @@ class MLXVLMHandler:
 
     async def _process_request(self, request_data: Dict[str, Any]) -> str:
         """
-        Process a vision request. This is the worker function for the request queue.
+        Process a multimodal request. This is the worker function for the request queue.
         
         Args:
             request_data: Dictionary containing the request data.
@@ -313,21 +320,21 @@ class MLXVLMHandler:
             
             # Extract request parameters
             images = request_data.get("images", [])
+            audios = request_data.get("audios", [])
             messages = request_data.get("messages", [])
             stream = request_data.get("stream", False)
-            
+         
             # Remove these keys from model_params
             model_params = request_data.copy()
             model_params.pop("images", None)
+            model_params.pop("audios", None)
             model_params.pop("messages", None)
             model_params.pop("stream", None)
-            
-            # Start timing
-            start_time = time.time()
             
             # Call the model
             response = self.model(
                 images=images,
+                audios=audios,
                 messages=messages,
                 stream=stream,
                 **model_params
@@ -338,7 +345,7 @@ class MLXVLMHandler:
             return response
             
         except Exception as e:
-            logger.error(f"Error processing vision request: {str(e)}")
+            logger.error(f"Error processing multimodal request: {str(e)}")
             # Clean up on error
             gc.collect()
             raise
@@ -420,13 +427,13 @@ class MLXVLMHandler:
             content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
             raise HTTPException(status_code=400, detail=content)
 
-    async def _prepare_vision_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, Any]]:
+    async def _prepare_multimodal_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, Any]], List[str], List[str], Dict[str, Any]]:
         """
-        Prepare the vision request by processing messages and images.
+        Prepare the multimodal request by processing messages with text, images, and audio.
         
         This method:
-        1. Extracts text messages and image URLs from the request
-        2. Processes image URLs to get local file paths
+        1. Extracts text messages, image URLs, and audio data from the request
+        2. Processes image URLs and audio data to get local file paths
         3. Prepares model parameters
         4. Returns processed data ready for model inference
         
@@ -434,13 +441,15 @@ class MLXVLMHandler:
             request (ChatCompletionRequest): The incoming request containing messages and parameters.
             
         Returns:
-            Tuple[List[Dict[str, Any]], List[str], Dict[str, Any]]: A tuple containing:
+            Tuple[List[Dict[str, Any]], List[str], List[str], Dict[str, Any]]: A tuple containing:
                 - List of processed chat messages
                 - List of processed image paths
+                - List of processed audio paths
                 - Dictionary of model parameters
         """
         chat_messages = []
         image_urls = []
+        audio_urls = []
 
         try:
             # Process each message in the request
@@ -461,7 +470,8 @@ class MLXVLMHandler:
                     if isinstance(message.content, list):
                         # Initialize containers for this message
                         texts = []
-                        images = []                 
+                        images = []
+                        audios = []                 
                         # Process each content item in the list
                         for item in message.content:
                             if item.type == "text":
@@ -476,17 +486,34 @@ class MLXVLMHandler:
                                     # Validate URL
                                     self._validate_image_url(url)
                                     images.append(url)
+                                    
+                            elif item.type == "input_audio":
+                                audio_input = getattr(item, "input_audio", None)
+                                if audio_input and hasattr(audio_input, "data"):
+                                    audio_data = audio_input.data
+                                    audio_format = getattr(audio_input, "format", "mp3")
+                                    # Create data URL from audio data
+                                    audio_url = f"data:audio/{audio_format};base64,{audio_data}"
+                                    # Validate audio data
+                                    self._validate_audio_data(audio_url)
+                                    audios.append(audio_url)
 
-                        # Add collected images to global list
+                        # Add collected media to global lists
                         if images:
                             image_urls.extend(images)
-                            
                             # Validate constraints
                             if len(images) > 4:
                                 content = create_error_response("Too many images in a single message (max: 4)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                                 raise HTTPException(status_code=400, detail=content)
+                        
+                        if audios:
+                            audio_urls.extend(audios)
+                            # Validate constraints
+                            if len(audios) > 2:
+                                content = create_error_response("Too many audio files in a single message (max: 2)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                                raise HTTPException(status_code=400, detail=content)
                             
-                        # Add text content if available, otherwise raise an error
+                        # Add text content if available, otherwise use empty string
                         if texts:
                             chat_messages.append({"role": "user", "content": " ".join(texts)})
                         else:
@@ -495,8 +522,9 @@ class MLXVLMHandler:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
 
-            # Process images and prepare model parameters
+            # Process images and audio files
             image_paths = await self.image_processor.process_image_urls(image_urls)
+            audio_paths = await self.audio_processor.process_audio_urls(audio_urls)
             
 
             # Get model parameters from the request
@@ -521,14 +549,15 @@ class MLXVLMHandler:
             # Log processed data at debug level
             logger.debug(f"Processed chat messages: {chat_messages}")
             logger.debug(f"Processed image paths: {image_paths}")
+            logger.debug(f"Processed audio paths: {audio_paths}")
             logger.debug(f"Model parameters: {model_params}")
 
-            return chat_messages, image_paths, model_params
+            return chat_messages, image_paths, audio_paths, model_params
 
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to prepare vision request: {str(e)}")
+            logger.error(f"Failed to prepare multimodal request: {str(e)}")
             content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
             raise HTTPException(status_code=400, detail=content)
             
@@ -555,4 +584,29 @@ class MLXVLMHandler:
                 base64.b64decode(encoded)
             except Exception as e:
                 content = create_error_response(f"Invalid base64 image: {str(e)}", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                raise HTTPException(status_code=400, detail=content)
+                
+    def _validate_audio_data(self, url: str) -> None:
+        """
+        Validate audio data URL format.
+        
+        Args:
+            url: The audio data URL to validate
+            
+        Raises:
+            HTTPException: If audio data is invalid
+        """
+        if not url:
+            content = create_error_response("Empty audio data provided", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            raise HTTPException(status_code=400, detail=content)
+            
+        # Validate base64 audio
+        if url.startswith("data:"):
+            try:
+                header, encoded = url.split(",", 1)
+                if not header.startswith("data:audio/"):
+                    raise ValueError("Invalid audio format")
+                base64.b64decode(encoded)
+            except Exception as e:
+                content = create_error_response(f"Invalid base64 audio: {str(e)}", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 raise HTTPException(status_code=400, detail=content)

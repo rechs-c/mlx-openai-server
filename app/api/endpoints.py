@@ -70,13 +70,13 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     try:
-        # Check if this is a vision request
-        is_vision_request = request.is_vision_request()
-        # If it's a vision request but the handler is MLXLMHandler (text-only), reject it
-        if is_vision_request and isinstance(handler, MLXLMHandler):
+        # Check if this is a multimodal request
+        is_multimodal_request = request.is_multimodal_request()
+        # If it's a multimodal request but the handler is MLXLMHandler (text-only), reject it
+        if is_multimodal_request and isinstance(handler, MLXLMHandler):
             return JSONResponse(
                 content=create_error_response(
-                    "Vision requests are not supported with text-only models. Use a VLM model type instead.", 
+                    "Multimodal requests are not supported with text-only models. Use a VLM model type instead.", 
                     "unsupported_request", 
                     400
                 ), 
@@ -84,8 +84,8 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
             )
         
         # Process the request based on type
-        return await process_vision_request(handler, request) if is_vision_request \
-               else await process_text_request(handler, request)
+        return await process_multimodal_request(handler, request) if is_multimodal_request \
+            else await process_text_request(handler, request)
     except Exception as e:
         logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -213,15 +213,15 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
         yield "data: [DONE]\n\n"
 
-async def process_vision_request(handler, request: ChatCompletionRequest):
-    """Process vision-specific requests."""
+async def process_multimodal_request(handler, request: ChatCompletionRequest):
+    """Process multimodal-specific requests."""
     if request.stream:
         return StreamingResponse(
-            handle_stream_response(handler.generate_vision_stream(request), request.model),
+            handle_stream_response(handler.generate_multimodal_stream(request), request.model),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
         )
-    return format_final_response(await handler.generate_vision_response(request), request.model)
+    return format_final_response(await handler.generate_multimodal_response(request), request.model)
 
 async def process_text_request(handler, request: ChatCompletionRequest):
     """Process text-only requests."""

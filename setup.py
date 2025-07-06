@@ -8,7 +8,7 @@ setup(
     author="Huy Vuong",
     author_email="cubist38@gmail.com",
     version=__version__,
-    description="A high-performance API server that provides OpenAI-compatible endpoints for MLX models. Built with Python and FastAPI, it enables efficient, scalable, and user-friendly local deployment of MLX-based vision and language models with an OpenAI-compatible interface. Perfect for developers looking to run MLX models locally while maintaining compatibility with existing OpenAI-based applications.",
+    description="A high-performance API server that provides OpenAI-compatible endpoints for MLX models. Built with Python and FastAPI, it enables efficient, scalable, and user-friendly local deployment of MLX-based multimodal models with an OpenAI-compatible interface. Supports text, vision, and audio processing capabilities. Perfect for developers looking to run MLX models locally while maintaining compatibility with existing OpenAI-based applications.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     packages=find_packages(), 
