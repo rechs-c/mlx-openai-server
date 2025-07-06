@@ -71,7 +71,7 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
     
     try:
         # Check if this is a vision request
-        is_vision_request = request.is_vision_request()
+        is_vision_request = request.is_multimodal_request()
         # If it's a vision request but the handler is MLXLMHandler (text-only), reject it
         if is_vision_request and isinstance(handler, MLXLMHandler):
             return JSONResponse(
