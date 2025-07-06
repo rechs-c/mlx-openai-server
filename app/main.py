@@ -51,7 +51,7 @@ def create_lifespan(config_args):
     async def lifespan(app: FastAPI):
         try:
             logger.info(f"Initializing MLX handler with model path: {config_args.model_path}")
-            if config_args.model_type == "vlm":
+            if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
                     model_path=config_args.model_path,
                     max_concurrency=config_args.max_concurrency
