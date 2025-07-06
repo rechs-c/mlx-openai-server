@@ -1,5 +1,5 @@
 """
-MLX model handlers for text and vision-language models.
+MLX model handlers for text and multimodal models.
 """
 
 from app.handler.mlx_lm import MLXLMHandler

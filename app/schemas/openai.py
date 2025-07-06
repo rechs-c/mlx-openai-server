@@ -10,9 +10,9 @@ class Config:
     """
     Configuration class holding the default model names for different types of requests.
     """
-    TEXT_MODEL = "gpt-4-turbo"          # Default model for text-based chat completions
-    VISION_MODEL = "gpt-4-vision-preview"  # Model used for vision-based requests
-    EMBEDDING_MODEL = "text-embedding-ada-002"  # Model used for generating embeddings
+    TEXT_MODEL = "local-text-model"          # Default model for text-based chat completions
+    MULTIMODAL_MODEL = "local-multimodal-model"  # Model used for multimodal requests
+    EMBEDDING_MODEL = "local-embedding-model"  # Model used for generating embeddings
 
 class ErrorResponse(BaseModel):
     object: str = Field("error", description="The object type, always 'error'.")
@@ -41,14 +41,6 @@ class AudioContentItem(BaseModel):
     """
     type: str = Field(..., description="The type of content, e.g., 'input_audio'.")
     input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
-
-class VisionContentItem(BaseModel):
-    """
-    Represents a single content item in a message (text or image).
-    """
-    type: str = Field(..., description="The type of content, e.g., 'text' or 'image_url'.")
-    text: Optional[str] = Field(None, description="The text content, if type is 'text'.")
-    image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
 
 class MultimodalContentItem(BaseModel):
     """

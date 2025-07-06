@@ -17,8 +17,8 @@ from app.utils.errors import create_error_response
 
 class MLXVLMHandler:
     """
-    Handler class for making requests to the underlying MLX vision-language model service.
-    Provides caching, concurrent image processing, and robust error handling.
+    Handler class for making requests to the underlying MLX multimodal model service.
+    Provides caching, concurrent image processing, audio processing, and robust error handling.
     """
 
     def __init__(self, model_path: str, max_workers: int = 4, max_concurrency: int = 1):
@@ -36,8 +36,8 @@ class MLXVLMHandler:
         self.audio_processor = AudioProcessor(max_workers)
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
-        # Initialize request queue for vision and text tasks
-        # We use the same queue for both vision and text tasks for simplicity
+        # Initialize request queue for multimodal and text tasks
+        # We use the same queue for both multimodal and text tasks for simplicity
         # and to ensure we don't overload the model with too many concurrent requests
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
         
@@ -71,9 +71,9 @@ class MLXVLMHandler:
         await self.request_queue.start(self._process_request)
         logger.info("Initialized MLXHandler and started request queue")
 
-    async def generate_vision_stream(self, request: ChatCompletionRequest):
+    async def generate_multimodal_stream(self, request: ChatCompletionRequest):
         """
-        Generate a streaming response for vision-based chat completion requests.
+        Generate a streaming response for multimodal chat completion requests.
         
         Args:
             request: ChatCompletionRequest object containing the messages.
@@ -97,7 +97,7 @@ class MLXVLMHandler:
                 **model_params
             }
             
-            # Submit to the vision queue and get the generator
+            # Submit to the multimodal queue and get the generator
             response_generator = await self.request_queue.submit(request_id, request_data)
             
             # Process and yield each chunk asynchronously
@@ -112,13 +112,13 @@ class MLXVLMHandler:
             raise HTTPException(status_code=429, detail=content)
 
         except Exception as e:
-            logger.error(f"Error in vision stream generation for request {request_id}: {str(e)}")
-            content = create_error_response(f"Failed to generate vision stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in multimodal stream generation for request {request_id}: {str(e)}")
+            content = create_error_response(f"Failed to generate multimodal stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
 
-    async def generate_vision_response(self, request: ChatCompletionRequest):
+    async def generate_multimodal_response(self, request: ChatCompletionRequest):
         """
-        Generate a complete response for vision-based chat completion requests.
+        Generate a complete response for multimodal chat completion requests.
         Uses the request queue for handling concurrent requests.
         
         Args:
@@ -152,8 +152,8 @@ class MLXVLMHandler:
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
             raise HTTPException(status_code=429, detail=content)
         except Exception as e:
-            logger.error(f"Error in vision response generation: {str(e)}")
-            content = create_error_response(f"Failed to generate vision response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in multimodal response generation: {str(e)}")
+            content = create_error_response(f"Failed to generate multimodal response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
 
     async def generate_text_stream(self, request: ChatCompletionRequest):
@@ -216,7 +216,7 @@ class MLXVLMHandler:
                 **model_params
             }
             
-            # Submit to the vision queue (reusing the same queue for text requests)
+            # Submit to the multimodal queue (reusing the same queue for text requests)
             response = await self.request_queue.submit(request_id, request_data)
             return response
             
@@ -302,7 +302,7 @@ class MLXVLMHandler:
 
     async def _process_request(self, request_data: Dict[str, Any]) -> str:
         """
-        Process a vision request. This is the worker function for the request queue.
+        Process a multimodal request. This is the worker function for the request queue.
         
         Args:
             request_data: Dictionary containing the request data.
@@ -323,16 +323,13 @@ class MLXVLMHandler:
             audios = request_data.get("audios", [])
             messages = request_data.get("messages", [])
             stream = request_data.get("stream", False)
-            
+         
             # Remove these keys from model_params
             model_params = request_data.copy()
             model_params.pop("images", None)
             model_params.pop("audios", None)
             model_params.pop("messages", None)
             model_params.pop("stream", None)
-            
-            # Start timing
-            start_time = time.time()
             
             # Call the model
             response = self.model(
@@ -348,7 +345,7 @@ class MLXVLMHandler:
             return response
             
         except Exception as e:
-            logger.error(f"Error processing vision request: {str(e)}")
+            logger.error(f"Error processing multimodal request: {str(e)}")
             # Clean up on error
             gc.collect()
             raise
@@ -560,7 +557,7 @@ class MLXVLMHandler:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to prepare vision request: {str(e)}")
+            logger.error(f"Failed to prepare multimodal request: {str(e)}")
             content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
             raise HTTPException(status_code=400, detail=content)
             
