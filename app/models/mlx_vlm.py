@@ -1,6 +1,5 @@
 import gc
 import mlx.core as mx
-from mlx_vlm.utils import load_config
 from mlx_vlm.prompt_utils import apply_chat_template
 from typing import List, Dict, Union, Generator, Optional
 from mlx_vlm import load, generate, stream_generate, prepare_inputs
@@ -31,7 +30,7 @@ class MLX_VLM:
         """
         try:
             self.model, self.processor = load(model_path, lazy=False, trust_remote_code=True)
-            self.config = load_config(model_path, trust_remote_code=True)
+            self.config = self.model.config
         except Exception as e:
             raise ValueError(f"Error loading model: {str(e)}")
         
@@ -39,6 +38,7 @@ class MLX_VLM:
         self, 
         messages: List[Dict[str, str]], 
         images: List[str] = None,
+        audios: List[str] = None,
         stream: bool = False, 
         **kwargs
     ) -> Union[str, Generator[str, None, None]]:
@@ -62,7 +62,8 @@ class MLX_VLM:
             self.config, 
             messages, 
             add_generation_prompt=True,
-            num_images=len(images) if images else 0
+            num_images=len(images) if images else 0,
+            num_audios = len(audios) if audios else 0
         )       
         # Set default parameters if not provided
         model_params = {
@@ -73,21 +74,23 @@ class MLX_VLM:
         
         if not stream:
             # Non-streaming mode: return complete response
-            text, _ = generate(
+            result = generate(
                 self.model,
                 self.processor,
                 prompt,
                 image=images,
+                audio=audios,
                 **model_params
             )
-            return text
+            return result.text
         else:
             # Streaming mode: return generator of chunks
             return stream_generate(
                 self.model,
                 self.processor,
                 prompt,
-                images,
+                image=images,
+                audio=audios,
                 **model_params
             )
         
