@@ -1,10 +1,9 @@
-from typing import List, Dict, Union, Generator, Optional
-from mlx_vlm import load
-from mlx_vlm.prompt_utils import apply_chat_template
-from mlx_vlm.utils import load_config, generate, stream_generate, prepare_inputs
-import mlx.core as mx
 import gc
-
+import mlx.core as mx
+from mlx_vlm.utils import load_config
+from mlx_vlm.prompt_utils import apply_chat_template
+from typing import List, Dict, Union, Generator, Optional
+from mlx_vlm import load, generate, stream_generate, prepare_inputs
 
 # Default model parameters
 DEFAULT_MAX_TOKENS = 256
