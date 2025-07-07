@@ -89,7 +89,7 @@ def print_startup_banner(args):
 @click.option(
     "--model-type",
     default="lm",
-    choices=["lm", "multimodal"],
+    type=click.Choice(["lm", "multimodal"]),
     help="Type of model to run"
 )
 @click.option(
