@@ -845,6 +845,7 @@ We extend our heartfelt gratitude to the following individuals and organizations
 - [MLX team](https://github.com/ml-explore/mlx) for developing the groundbreaking MLX framework, which provides the foundation for efficient machine learning on Apple Silicon
 - [mlx-lm](https://github.com/ml-explore/mlx-lm) for efficient large language models support
 - [mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main) for pioneering multimodal model support within the MLX ecosystem
+- [mflux](https://github.com/filipstrand/mflux) for Flux-based image generation models
 - [mlx-community](https://huggingface.co/mlx-community) for curating and maintaining a diverse collection of high-quality MLX models
 
 ### Open Source Community
