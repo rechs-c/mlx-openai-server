@@ -51,20 +51,24 @@ def create_lifespan(config_args):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         try:
-            logger.info(f"Initializing MLX handler with model path: {config_args.model_path}")
+            if config_args.model_type == "image-generation":
+                logger.info(f"Initializing MLX handler with model name: {config_args.model_identifier}")
+            else:
+                logger.info(f"Initializing MLX handler with model path: {config_args.model_identifier}")
+            
             if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
-                    model_path=config_args.model_path,
+                    model_path=config_args.model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )
             elif config_args.model_type == "image-generation":
                 handler = MLXFluxHandler(
-                    model_path=config_args.model_path,
+                    model_path=config_args.model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )
             else:
                 handler = MLXLMHandler(
-                    model_path=config_args.model_path,
+                    model_path=config_args.model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )       
             # Initialize queue
