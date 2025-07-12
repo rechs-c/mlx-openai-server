@@ -15,11 +15,12 @@ setup(
     install_requires=[
         "mlx-vlm==0.3.0",
         "mlx-lm==0.25.3",
-        "fastapi",
-        "uvicorn",
-        "Pillow",
-        "click",
-        "loguru",
+        "mflux==0.9.3",
+        "fastapi==0.115.14",
+        "uvicorn==0.35.0",
+        "Pillow==10.4.0",
+        "click==8.2.1",
+        "loguru==0.7.3",
     ],
     extras_require={
         "dev": [

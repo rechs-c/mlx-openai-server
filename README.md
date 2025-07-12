@@ -4,7 +4,7 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 ## Description
-This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based multimodal models locally with an OpenAI-compatible interface. The server supports text, vision, and audio processing capabilities.
+This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based multimodal models locally with an OpenAI-compatible interface. The server supports text, vision, audio processing, and image generation capabilities.
 
 > **Note:** This project currently supports **MacOS with M-series chips** only as it specifically leverages MLX, Apple's framework optimized for Apple Silicon.
 
@@ -34,6 +34,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 ## Key Features
 - 🚀 **Fast, local OpenAI-compatible API** for MLX models
 - 🖼️ **Multimodal model support** with vision, audio, and text
+- 🎨 **Image generation** with MLX Flux models
 - 🔌 **Drop-in replacement** for OpenAI API in your apps
 - 📈 **Performance and queue monitoring endpoints**
 - 🧑‍💻 **Easy Python and CLI usage**
@@ -62,6 +63,7 @@ Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the ser
 This server implements the OpenAI API interface, allowing you to use it as a drop-in replacement for OpenAI's services in your applications. It supports:
 - Chat completions (both streaming and non-streaming)
 - Multimodal interactions (text, images, and audio)
+- Image generation with Flux models
 - Embeddings generation
 - Function calling and tool use
 - Standard OpenAI request/response formats
@@ -69,10 +71,11 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 
 ## Supported Model Types
 
-The server supports two types of MLX models:
+The server supports three types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
 2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
+3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-based image generation models
 
 ## Installation
 
@@ -158,17 +161,28 @@ If the output is `i386` (on an M-series machine), you are using a non-native Pyt
 To start the MLX server, activate the virtual environment and run the main application file:
 ```bash
 source oai-compat-server/bin/activate
+
+# For text-only or multimodal models
 python -m app.main \
   --model-path <path-to-mlx-model> \
   --model-type <lm|multimodal> \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
+
+# For image generation models
+python -m app.main \
+  --model-type image-generation \
+  --model-name <dev|schnell> \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
 ```
 
 #### Server Parameters
-- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository)
-- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models). Default: `lm`
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm` and `multimodal` model types.
+- `--model-name`: Name of the image generation model to use. Required for `image-generation` model type. Available options: `dev`, `schnell`.
+- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models, `image-generation` for image generation models). Default: `lm`
 - `--max-concurrency`: Maximum number of concurrent requests (default: 1)
 - `--queue-timeout`: Request timeout in seconds (default: 300)
 - `--queue-size`: Maximum queue size for pending requests (default: 100)
@@ -199,6 +213,18 @@ python -m app.main \
   --queue-size 100
 ```
 
+Image generation model:
+```bash
+python -m app.main \
+  --model-type image-generation \
+  --model-name dev \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
+```
+
+Available model names for image generation: `dev`, `schnell`.
+
 ### CLI Usage
 
 CLI commands:
@@ -210,7 +236,11 @@ mlx-openai-server launch --help
 
 To launch the server:
 ```bash
+# For text-only or multimodal models
 mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --port 8000
+
+# For image generation models
+mlx-openai-server launch --model-type image-generation --model-name <dev|schnell> --port 8000
 ```
 
 ### Using the API
@@ -308,6 +338,73 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+#### Image Generation
+```python
+import openai
+import base64
+from io import BytesIO
+from PIL import Image
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Basic image generation
+response = client.images.generate(
+    prompt="A serene landscape with mountains and a lake at sunset",
+    model="local-image-generation-model",
+    size="1024x1024",
+    n=1
+)
+
+# Display the generated image
+image_data = base64.b64decode(response.data[0].b64_json)
+image = Image.open(BytesIO(image_data))
+image.show()
+```
+
+#### Advanced Image Generation with Custom Parameters
+```python
+import requests
+
+# For more control, use direct API calls
+payload = {
+    "prompt": "A beautiful cyberpunk city at night with neon lights",
+    "model": "local-image-generation-model",
+    "size": "1024x1024",
+    "negative_prompt": "blurry, low quality, distorted",
+    "steps": 8,
+    "seed": 42,
+    "priority": "normal"
+}
+
+response = requests.post(
+    "http://localhost:8000/v1/images/generations",
+    json=payload,
+    headers={"Authorization": "Bearer fake-api-key"}
+)
+
+if response.status_code == 200:
+    result = response.json()
+    # Handle the base64 image data
+    image_data = base64.b64decode(result['data'][0]['b64_json'])
+    image = Image.open(BytesIO(image_data))
+    image.show()
+```
+
+**Image Generation Parameters:**
+- `prompt`: Text description of the desired image (required, max 1000 characters)
+- `model`: Model identifier (defaults to "local-image-generation-model")
+- `size`: Image dimensions - "256x256", "512x512", or "1024x1024" (default: "1024x1024")
+- `negative_prompt`: What to avoid in the generated image (optional)
+- `steps`: Number of inference steps, 1-50 (default: 4)
+- `seed`: Random seed for reproducible generation (optional)
+- `priority`: Task priority - "low", "normal", "high" (default: "normal")
+- `async_mode`: Whether to process asynchronously (default: false)
+
+> **Note:** Image generation requires running the server with `--model-type image-generation`. The server uses MLX Flux models for high-quality image generation.
 
 #### Function Calling
 ```python
@@ -621,6 +718,20 @@ The server implements OpenAI-compatible API response schemas to ensure seamless 
 }
 ```
 
+### Image Generation Response
+
+```json
+{
+  "created": 1677858242,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAAANSUhEUgAA...",
+      "url": null
+    }
+  ]
+}
+```
+
 ### Error Response
 
 ```json
@@ -683,6 +794,11 @@ The repository includes example notebooks to help you get started with different
   - Combining audio with text prompts for rich, context-aware responses
   - Exploring different types of audio analysis prompts
   - Understanding audio transcription and content analysis capabilities
+
+- **image_generations.ipynb**: A comprehensive guide to image generation using MLX Flux models, including:
+  - Setting up connection to MLX Server for image generation
+  - Basic image generation with default parameters
+  - Advanced image generation with custom parameters (negative prompts, steps, seed)
 
 
 ## Large Models
