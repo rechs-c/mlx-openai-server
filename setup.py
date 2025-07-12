@@ -35,7 +35,7 @@ setup(
             "mlx-openai-server=app.cli:cli",
         ],
     },
-    python_requires=">=3.11",
+    python_requires="3.11",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
