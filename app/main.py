@@ -36,39 +36,63 @@ logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
-    parser.add_argument("--model-path", type=str, required=True, help="Huggingface model repo or local path")
+    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm and multimodal model types)")
+    parser.add_argument("--model-name", type=str, choices=["dev", "schnell"], help="Name of the model (required for image-generation model type).")
     parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
-    return parser.parse_args()
+    
+    args = parser.parse_args()
+    
+    # Validate model arguments
+    if args.model_type == "image-generation":
+        if not args.model_name:
+            parser.error("--model-name is required for image-generation model type. Available options: 'dev', 'schnell', 'dev-kontext'")
+        if args.model_path:
+            parser.error("--model-path cannot be used with image-generation model type. Use --model-name instead.")
+    else:
+        if not args.model_path:
+            parser.error("--model-path is required for lm and multimodal model types")
+        if args.model_name:
+            parser.error("--model-name can only be used with image-generation model type. Use --model-path instead.")
+    
+    return args
 
+
+def get_model_identifier(args):
+    """Get the appropriate model identifier based on model type."""
+    if args.model_type == "image-generation":
+        return args.model_name
+    else:
+        return args.model_path
 
 def create_lifespan(config_args):
     """Factory function to create a lifespan context manager with access to config args."""
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         try:
+            model_identifier = get_model_identifier(config_args)
             if config_args.model_type == "image-generation":
-                logger.info(f"Initializing MLX handler with model name: {config_args.model_identifier}")
+                logger.info(f"Initializing MLX handler with model name: {model_identifier}")
             else:
-                logger.info(f"Initializing MLX handler with model path: {config_args.model_identifier}")
+                logger.info(f"Initializing MLX handler with model path: {model_identifier}")
             
             if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
-                    model_path=config_args.model_identifier,
+                    model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )
             elif config_args.model_type == "image-generation":
                 handler = MLXFluxHandler(
-                    model_path=config_args.model_identifier,
+                    model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )
             else:
                 handler = MLXLMHandler(
-                    model_path=config_args.model_identifier,
+                    model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )       
             # Initialize queue

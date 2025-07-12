@@ -114,7 +114,8 @@ def validate_model_args(model_path, model_name, model_type):
 )
 @click.option(
     "--model-name",
-    help="Name of the model (required for image-generation model type). Available options: 'dev', 'schnell', 'dev-kontext'"
+    type=click.Choice(["dev", "schnell"]),
+    help="Name of the model (required for image-generation model type). Available options: 'dev', 'schnell'"
 )
 @click.option(
     "--model-type",
