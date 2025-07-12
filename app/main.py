@@ -50,7 +50,7 @@ def parse_args():
     # Validate model arguments
     if args.model_type == "image-generation":
         if not args.model_name:
-            parser.error("--model-name is required for image-generation model type. Available options: 'dev', 'schnell', 'dev-kontext'")
+            parser.error("--model-name is required for image-generation model type. Available options: 'dev', 'schnell'")
         if args.model_path:
             parser.error("--model-path cannot be used with image-generation model type. Use --model-name instead.")
     else:

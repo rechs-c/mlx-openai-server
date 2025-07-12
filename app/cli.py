@@ -97,7 +97,7 @@ def validate_model_args(model_path, model_name, model_type):
     """Validate that the correct model argument is provided based on model type."""
     if model_type == "image-generation":
         if not model_name:
-            raise click.ClickException("--model-name is required for image-generation model type. Available options: 'dev', 'schnell', 'dev-kontext'")
+            raise click.ClickException("--model-name is required for image-generation model type. Available options: 'dev', 'schnell'")
         if model_path:
             raise click.ClickException("--model-path cannot be used with image-generation model type. Use --model-name instead.")
     else:
