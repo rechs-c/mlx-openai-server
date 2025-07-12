@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from app.handler.mlx_vlm import MLXVLMHandler
-from app.handler.mlx_lm import MLXLMHandler 
+from app.handler.mlx_lm import MLXLMHandler
+from app.handler.mlfux import MLXFluxHandler 
 from app.api.endpoints import router
 from app.version import __version__
 
@@ -36,7 +37,7 @@ logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, required=True, help="Huggingface model repo or local path")
-    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal"], help="Model type")
+    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
@@ -53,6 +54,11 @@ def create_lifespan(config_args):
             logger.info(f"Initializing MLX handler with model path: {config_args.model_path}")
             if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
+                    model_path=config_args.model_path,
+                    max_concurrency=config_args.max_concurrency
+                )
+            elif config_args.model_type == "image-generation":
+                handler = MLXFluxHandler(
                     model_path=config_args.model_path,
                     max_concurrency=config_args.max_concurrency
                 )

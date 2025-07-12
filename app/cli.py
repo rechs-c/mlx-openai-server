@@ -89,8 +89,8 @@ def print_startup_banner(args):
 @click.option(
     "--model-type",
     default="lm",
-    type=click.Choice(["lm", "multimodal"]),
-    help="Type of model to run"
+    type=click.Choice(["lm", "multimodal", "image-generation"]),
+    help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation)"
 )
 @click.option(
     "--port", 
