@@ -65,6 +65,10 @@ async def models(raw_request: Request):
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     """Handle chat completion requests."""
 
+    logger.info("------------request>------------")
+    logger.info(request)
+    logger.info("------------<request------------")
+
     handler = raw_request.app.state.handler
     if handler is None:
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
