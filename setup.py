@@ -13,8 +13,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.3.0",
-        "mlx-lm==0.25.3",
+        "mlx-vlm==0.3.1",
+        "mlx-lm==0.26.0",
         "mflux==0.9.3",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
@@ -35,7 +35,7 @@ setup(
             "mlx-openai-server=app.cli:cli",
         ],
     },
-    python_requires="3.11",
+    python_requires=">=3.11",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
