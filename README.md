@@ -71,11 +71,12 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 
 ## Supported Model Types
 
-The server supports three types of MLX models:
+The server supports four types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
 2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
 3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-based image generation models
+4. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
 
 ## Installation
 
@@ -177,12 +178,21 @@ python -m app.main \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
+
+# For embeddings models
+python -m app.main \
+  --model-type embeddings \
+  --model-path <embeddings-model-path> \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
 ```
 
 #### Server Parameters
 - `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm` and `multimodal` model types.
-- `--model-name`: Name of the image generation model to use. Required for `image-generation` model type. Available options: `dev`, `schnell`.
-- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models, `image-generation` for image generation models). Default: `lm`
+- `--model-name`: Name of the model to use. Required for `image-generation` model type. Available options: `dev`, `schnell`.
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, and `embeddings` model types.
+- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models, `image-generation` for image generation models, `embeddings` for embeddings models). Default: `lm`
 - `--max-concurrency`: Maximum number of concurrent requests (default: 1)
 - `--queue-timeout`: Request timeout in seconds (default: 300)
 - `--queue-size`: Maximum queue size for pending requests (default: 100)
@@ -845,6 +855,7 @@ We extend our heartfelt gratitude to the following individuals and organizations
 - [MLX team](https://github.com/ml-explore/mlx) for developing the groundbreaking MLX framework, which provides the foundation for efficient machine learning on Apple Silicon
 - [mlx-lm](https://github.com/ml-explore/mlx-lm) for efficient large language models support
 - [mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main) for pioneering multimodal model support within the MLX ecosystem
+- [mlx-embeddings](https://github.com/Blaizzy/mlx-embeddings) for text embeddings generation with optimized memory management
 - [mflux](https://github.com/filipstrand/mflux) for Flux-based image generation models
 - [mlx-community](https://huggingface.co/mlx-community) for curating and maintaining a diverse collection of high-quality MLX models
 
