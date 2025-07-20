@@ -17,8 +17,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChoiceDeltaToolCall, Delta, Embedding,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
-                                StreamingChoice, ImageGenerationRequest,
-                                ImageGenerationResponse)
+                                StreamingChoice, ImageGenerationRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -317,8 +316,7 @@ def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> C
         )
         tool_call_responses.append(tool_call_response)
     
-    if len(tool_calls) > 0:
-        message = Message(role="assistant", reasoning_content=reasoning_content, tool_calls=tool_call_responses, content="", refusal=None, function_call=None)
+    message = Message(role="assistant", content="", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
     
     return ChatCompletionResponse(
         id=get_id(),
