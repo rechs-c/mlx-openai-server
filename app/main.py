@@ -12,7 +12,8 @@ from loguru import logger
 
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler
-from app.handler.mlfux import MLXFluxHandler 
+from app.handler.mlfux import MLXFluxHandler
+from app.handler.mlx_embeddings import MLXEmbeddingsHandler 
 from app.api.endpoints import router
 from app.version import __version__
 
@@ -38,7 +39,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, help="Path to the model (required for lm and multimodal model types)")
     parser.add_argument("--model-name", type=str, choices=["dev", "schnell"], help="Name of the model (required for image-generation model type).")
-    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation"], help="Model type")
+    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "embeddings"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
@@ -55,7 +56,7 @@ def parse_args():
             parser.error("--model-path cannot be used with image-generation model type. Use --model-name instead.")
     else:
         if not args.model_path:
-            parser.error("--model-path is required for lm and multimodal model types")
+            parser.error("--model-path is required for lm, multimodal, and embeddings model types")
         if args.model_name:
             parser.error("--model-name can only be used with image-generation model type. Use --model-path instead.")
     
@@ -87,6 +88,11 @@ def create_lifespan(config_args):
                 )
             elif config_args.model_type == "image-generation":
                 handler = MLXFluxHandler(
+                    model_path=model_identifier,
+                    max_concurrency=config_args.max_concurrency
+                )
+            elif config_args.model_type == "embeddings":
+                handler = MLXEmbeddingsHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
                 )
