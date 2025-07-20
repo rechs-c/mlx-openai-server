@@ -102,7 +102,7 @@ def validate_model_args(model_path, model_name, model_type):
             raise click.ClickException("--model-path cannot be used with image-generation model type. Use --model-name instead.")
     else:
         if not model_path:
-            raise click.ClickException("--model-path is required for lm and multimodal model types")
+            raise click.ClickException("--model-path is required for lm, multimodal, and embeddings model types")
         if model_name:
             raise click.ClickException("--model-name can only be used with image-generation model type. Use --model-path instead.")
 
@@ -110,7 +110,7 @@ def validate_model_args(model_path, model_name, model_type):
 @cli.command()
 @click.option(
     "--model-path", 
-    help="Path to the model (required for lm and multimodal model types)"
+    help="Path to the model (required for lm, multimodal, and embeddings model types)"
 )
 @click.option(
     "--model-name",
@@ -120,8 +120,8 @@ def validate_model_args(model_path, model_name, model_type):
 @click.option(
     "--model-type",
     default="lm",
-    type=click.Choice(["lm", "multimodal", "image-generation"]),
-    help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation)"
+    type=click.Choice(["lm", "multimodal", "image-generation", "embeddings"]),
+    help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation, embeddings: text embeddings)"
 )
 @click.option(
     "--port", 

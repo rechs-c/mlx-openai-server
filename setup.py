@@ -15,6 +15,7 @@ setup(
     install_requires=[
         "mlx-vlm==0.3.1",
         "mlx-lm==0.26.0",
+        "mlx-embeddings==0.0.3",
         "mflux==0.9.3",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
