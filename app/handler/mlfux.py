@@ -11,10 +11,10 @@ from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
-from app.core.queue import RequestQueue
 from app.models.mflux import MLXFlux
-from app.schemas.openai import ImageGenerationRequest, ImageGenerationResponse, ImageData
+from app.core.queue import RequestQueue
 from app.utils.errors import create_error_response
+from app.schemas.openai import ImageGenerationRequest, ImageGenerationResponse, ImageData
 
 
 class MLXFluxHandler:

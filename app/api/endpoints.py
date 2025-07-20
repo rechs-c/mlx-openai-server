@@ -17,8 +17,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChoiceDeltaToolCall, Delta, Embedding,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
-                                StreamingChoice, ImageGenerationRequest,
-                                ImageGenerationResponse)
+                                StreamingChoice, ImageGenerationRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -276,7 +275,7 @@ def get_tool_call_id():
     random_suffix = random.randint(0, 999999)
     return f"call_{timestamp}{random_suffix:06d}"
 
-def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str) -> ChatCompletionResponse:
+def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> ChatCompletionResponse:
     """Format the final non-streaming response."""
     
     if isinstance(response, str):
@@ -287,14 +286,23 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             model=model,
             choices=[Choice(
                 index=0,
-                message=Message(role="assistant", content=response),
+                message=Message(role="assistant", content=response, refusal=None, function_call=None, reasoning_content=None, tool_calls=None),
                 finish_reason="stop"
             )]
         )
     
     reasoning_content = response.get("reasoning_content", None)
-    tool_calls = response.get("tool_calls", [])
+    response_content = response.get("content", None)
+    tool_calls = response.get("tool_calls", None)
     tool_call_responses = []
+    if tool_calls is None or len(tool_calls) == 0:
+        return ChatCompletionResponse(
+            id=get_id(),
+            object="chat.completion",
+            created=int(time.time()),
+            model=model,
+            choices=[Choice(index=0, message=Message(role="assistant", content=response_content, reasoning_content=reasoning_content), finish_reason="stop")]
+        )
     for idx, tool_call in enumerate(tool_calls):
         function_call = FunctionCall(
             name=tool_call.get("name"),
@@ -308,10 +316,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         )
         tool_call_responses.append(tool_call_response)
     
-    if len(tool_calls) > 0:
-        message = Message(role="assistant", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
-    else:
-        message = Message(role="assistant", content=response, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+    message = Message(role="assistant", content="", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
     
     return ChatCompletionResponse(
         id=get_id(),
