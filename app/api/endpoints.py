@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
 from app.handler.mlx_lm import MLXLMHandler
+from app.handler.mlfux import MLXFluxHandler
 from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
                                 ChatCompletionRequest, ChatCompletionResponse,
@@ -16,7 +17,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChoiceDeltaToolCall, Delta, Embedding,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
-                                StreamingChoice)
+                                StreamingChoice, ImageGenerationRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -74,13 +75,13 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     try:
-        # Check if this is a vision request
-        is_vision_request = request.is_vision_request()
-        # If it's a vision request but the handler is MLXLMHandler (text-only), reject it
-        if is_vision_request and isinstance(handler, MLXLMHandler):
+        # Check if this is a multimodal request
+        is_multimodal_request = request.is_multimodal_request()
+        # If it's a multimodal request but the handler is MLXLMHandler (text-only), reject it
+        if is_multimodal_request and isinstance(handler, MLXLMHandler):
             return JSONResponse(
                 content=create_error_response(
-                    "Vision requests are not supported with text-only models. Use a VLM model type instead.", 
+                    "Multimodal requests are not supported with text-only models. Use a VLM model type instead.", 
                     "unsupported_request", 
                     400
                 ), 
@@ -88,8 +89,8 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
             )
         
         # Process the request based on type
-        return await process_vision_request(handler, request) if is_vision_request \
-               else await process_text_request(handler, request)
+        return await process_multimodal_request(handler, request) if is_multimodal_request \
+            else await process_text_request(handler, request)
     except Exception as e:
         logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -106,6 +107,31 @@ async def embeddings(request: EmbeddingRequest, raw_request: Request):
         return create_response_embeddings(embeddings, request.model)
     except Exception as e:
         logger.error(f"Error processing embedding request: {str(e)}", exc_info=True)
+        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+@router.post("/v1/images/generations")
+async def image_generations(request: ImageGenerationRequest, raw_request: Request):
+    """Handle image generation requests."""
+    handler = raw_request.app.state.handler
+    if handler is None:
+        return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
+    
+    # Check if the handler is an MLXFluxHandler
+    if not isinstance(handler, MLXFluxHandler):
+        return JSONResponse(
+            content=create_error_response(
+                "Image generation requests require an image generation model. Use --model-type image-generation.",
+                "unsupported_request",
+                400
+            ),
+            status_code=400
+        )
+    
+    try:
+        image_response = await handler.generate_image(request)
+        return image_response
+    except Exception as e:
+        logger.error(f"Error processing image generation request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
@@ -217,15 +243,15 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
         yield "data: [DONE]\n\n"
 
-async def process_vision_request(handler, request: ChatCompletionRequest):
-    """Process vision-specific requests."""
+async def process_multimodal_request(handler, request: ChatCompletionRequest):
+    """Process multimodal-specific requests."""
     if request.stream:
         return StreamingResponse(
-            handle_stream_response(handler.generate_vision_stream(request), request.model),
+            handle_stream_response(handler.generate_multimodal_stream(request), request.model),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
         )
-    return format_final_response(await handler.generate_vision_response(request), request.model)
+    return format_final_response(await handler.generate_multimodal_response(request), request.model)
 
 async def process_text_request(handler, request: ChatCompletionRequest):
     """Process text-only requests."""
@@ -253,7 +279,7 @@ def get_tool_call_id():
     random_suffix = random.randint(0, 999999)
     return f"call_{timestamp}{random_suffix:06d}"
 
-def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str) -> ChatCompletionResponse:
+def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> ChatCompletionResponse:
     """Format the final non-streaming response."""
     
     if isinstance(response, str):
@@ -264,14 +290,23 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
             model=model,
             choices=[Choice(
                 index=0,
-                message=Message(role="assistant", content=response),
+                message=Message(role="assistant", content=response, refusal=None, function_call=None, reasoning_content=None, tool_calls=None),
                 finish_reason="stop"
             )]
         )
     
     reasoning_content = response.get("reasoning_content", None)
-    tool_calls = response.get("tool_calls", [])
+    response_content = response.get("content", None)
+    tool_calls = response.get("tool_calls", None)
     tool_call_responses = []
+    if tool_calls is None or len(tool_calls) == 0:
+        return ChatCompletionResponse(
+            id=get_id(),
+            object="chat.completion",
+            created=int(time.time()),
+            model=model,
+            choices=[Choice(index=0, message=Message(role="assistant", content=response_content, reasoning_content=reasoning_content), finish_reason="stop")]
+        )
     for idx, tool_call in enumerate(tool_calls):
         function_call = FunctionCall(
             name=tool_call.get("name"),
@@ -285,10 +320,7 @@ def format_final_response(response: Union[str, List[Dict[str, Any]]], model: str
         )
         tool_call_responses.append(tool_call_response)
     
-    if len(tool_calls) > 0:
-        message = Message(role="assistant", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
-    else:
-        message = Message(role="assistant", content=response, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+    message = Message(role="assistant", content="", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
     
     return ChatCompletionResponse(
         id=get_id(),

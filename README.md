@@ -4,7 +4,7 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 ## Description
-This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based vision and language models locally with an OpenAI-compatible interface.
+This repository hosts a high-performance API server that provides OpenAI-compatible endpoints for MLX models. Developed using Python and powered by the FastAPI framework, it provides an efficient, scalable, and user-friendly solution for running MLX-based multimodal models locally with an OpenAI-compatible interface. The server supports text, vision, audio processing, and image generation capabilities.
 
 > **Note:** This project currently supports **MacOS with M-series chips** only as it specifically leverages MLX, Apple's framework optimized for Apple Silicon.
 
@@ -33,7 +33,8 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ## Key Features
 - 🚀 **Fast, local OpenAI-compatible API** for MLX models
-- 🖼️ **Vision-language and text-only model support**
+- 🖼️ **Multimodal model support** with vision, audio, and text
+- 🎨 **Image generation** with MLX Flux models
 - 🔌 **Drop-in replacement** for OpenAI API in your apps
 - 📈 **Performance and queue monitoring endpoints**
 - 🧑‍💻 **Easy Python and CLI usage**
@@ -61,7 +62,8 @@ Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the ser
 
 This server implements the OpenAI API interface, allowing you to use it as a drop-in replacement for OpenAI's services in your applications. It supports:
 - Chat completions (both streaming and non-streaming)
-- Vision-language model interactions
+- Multimodal interactions (text, images, and audio)
+- Image generation with Flux models
 - Embeddings generation
 - Function calling and tool use
 - Standard OpenAI request/response formats
@@ -69,10 +71,12 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 
 ## Supported Model Types
 
-The server supports two types of MLX models:
+The server supports four types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
-2. **Vision-language models** (`--model-type vlm`) - Uses the `mlx-vlm` library for multimodal models that can process both text and images
+2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
+3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-based image generation models
+4. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
 
 ## Installation
 
@@ -108,6 +112,40 @@ Follow these steps to set up the MLX-powered server:
     pip install -e .
     ```
 
+### Using Conda (Recommended)
+
+For better environment management and to avoid architecture issues, we recommend using conda:
+
+1. **Install conda** (if not already installed):
+    ```bash
+    mkdir -p ~/miniconda3
+    curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -o ~/miniconda3/miniconda.sh
+    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+    rm ~/miniconda3/miniconda.sh
+    source ~/miniconda3/bin/activate
+    conda init --all
+    ```
+
+2. **Create a new conda environment** with Python 3.11:
+    ```bash
+    conda create -n mlx-server python=3.11
+    conda activate mlx-server
+    ```
+
+3. **Install the package**:
+    ```bash
+    # Option 1: Install from PyPI
+    pip install mlx-openai-server
+
+    # Option 2: Install directly from GitHub
+    pip install git+https://github.com/cubist38/mlx-openai-server.git
+    
+    # Option 3: Clone and install in development mode
+    git clone https://github.com/cubist38/mlx-openai-server.git
+    cd mlx-openai-server
+    pip install -e .
+    ```
+
 ### Troubleshooting
 **Issue:** My OS and Python versions meet the requirements, but `pip` cannot find a matching distribution.
 
@@ -124,17 +162,37 @@ If the output is `i386` (on an M-series machine), you are using a non-native Pyt
 To start the MLX server, activate the virtual environment and run the main application file:
 ```bash
 source oai-compat-server/bin/activate
+
+# For text-only or multimodal models
 python -m app.main \
   --model-path <path-to-mlx-model> \
-  --model-type <lm|vlm> \
+  --model-type <lm|multimodal> \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
+
+# For image generation models
+python -m app.main \
+  --model-type image-generation \
+  --model-name <dev|schnell> \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
+
+# For embeddings models
+python -m app.main \
+  --model-type embeddings \
+  --model-path <embeddings-model-path> \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
 ```
 
 #### Server Parameters
-- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository)
-- `--model-type`: Type of model to run (`lm` for text-only models, `vlm` for vision-language models). Default: `lm`
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm` and `multimodal` model types.
+- `--model-name`: Name of the model to use. Required for `image-generation` model type. Available options: `dev`, `schnell`.
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, and `embeddings` model types.
+- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models, `image-generation` for image generation models, `embeddings` for embeddings models). Default: `lm`
 - `--max-concurrency`: Maximum number of concurrent requests (default: 1)
 - `--queue-timeout`: Request timeout in seconds (default: 300)
 - `--queue-size`: Maximum queue size for pending requests (default: 100)
@@ -153,17 +211,29 @@ python -m app.main \
   --queue-size 100
 ```
 
-> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and vision-language models (`--model-type vlm`).
+> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
 
-Vision-language model:
+Multimodal model:
 ```bash
 python -m app.main \
   --model-path mlx-community/llava-phi-3-vision-4bit \
-  --model-type vlm \
+  --model-type multimodal \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
 ```
+
+Image generation model:
+```bash
+python -m app.main \
+  --model-type image-generation \
+  --model-name dev \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
+```
+
+Available model names for image generation: `dev`, `schnell`.
 
 ### CLI Usage
 
@@ -176,7 +246,11 @@ mlx-openai-server launch --help
 
 To launch the server:
 ```bash
-mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|vlm> --port 8000
+# For text-only or multimodal models
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --port 8000
+
+# For image generation models
+mlx-openai-server launch --model-type image-generation --model-name <dev|schnell> --port 8000
 ```
 
 ### Using the API
@@ -202,7 +276,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-#### Vision-Language Model
+#### Multimodal Model (Vision + Audio)
 ```python
 import openai
 import base64
@@ -217,7 +291,7 @@ with open("image.jpg", "rb") as image_file:
     base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
 response = client.chat.completions.create(
-    model="local-vlm",  # Model name doesn't matter for local server
+    model="local-multimodal",  # Model name doesn't matter for local server
     messages=[
         {
             "role": "user",
@@ -235,6 +309,112 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+#### Audio Input Support
+```python
+import openai
+import base64
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Load and encode audio file
+with open("audio.wav", "rb") as audio_file:
+    audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+
+response = client.chat.completions.create(
+    model="local-multimodal",  # Model name doesn't matter for local server
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "What's in this audio?"
+                },
+                {
+                    "type": "input_audio",
+                    "input_audio": {
+                        "data": audio_base64,
+                        "format": "wav"
+                    },
+                },
+            ],
+        }
+    ],
+    max_tokens=64,
+)
+print(response.choices[0].message.content)
+```
+
+#### Image Generation
+```python
+import openai
+import base64
+from io import BytesIO
+from PIL import Image
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Basic image generation
+response = client.images.generate(
+    prompt="A serene landscape with mountains and a lake at sunset",
+    model="local-image-generation-model",
+    size="1024x1024",
+    n=1
+)
+
+# Display the generated image
+image_data = base64.b64decode(response.data[0].b64_json)
+image = Image.open(BytesIO(image_data))
+image.show()
+```
+
+#### Advanced Image Generation with Custom Parameters
+```python
+import requests
+
+# For more control, use direct API calls
+payload = {
+    "prompt": "A beautiful cyberpunk city at night with neon lights",
+    "model": "local-image-generation-model",
+    "size": "1024x1024",
+    "negative_prompt": "blurry, low quality, distorted",
+    "steps": 8,
+    "seed": 42,
+    "priority": "normal"
+}
+
+response = requests.post(
+    "http://localhost:8000/v1/images/generations",
+    json=payload,
+    headers={"Authorization": "Bearer fake-api-key"}
+)
+
+if response.status_code == 200:
+    result = response.json()
+    # Handle the base64 image data
+    image_data = base64.b64decode(result['data'][0]['b64_json'])
+    image = Image.open(BytesIO(image_data))
+    image.show()
+```
+
+**Image Generation Parameters:**
+- `prompt`: Text description of the desired image (required, max 1000 characters)
+- `model`: Model identifier (defaults to "local-image-generation-model")
+- `size`: Image dimensions - "256x256", "512x512", or "1024x1024" (default: "1024x1024")
+- `negative_prompt`: What to avoid in the generated image (optional)
+- `steps`: Number of inference steps, 1-50 (default: 4)
+- `seed`: Random seed for reproducible generation (optional)
+- `priority`: Task priority - "low", "normal", "high" (default: "normal")
+- `async_mode`: Whether to process asynchronously (default: false)
+
+> **Note:** Image generation requires running the server with `--model-type image-generation`. The server uses MLX Flux models for high-quality image generation.
 
 #### Function Calling
 ```python
@@ -335,7 +515,7 @@ batch_response = client.embeddings.create(
 print(f"Number of embeddings: {len(batch_response.data)}")
 ```
 
-2. Vision-language model embeddings:
+2. Multimodal model embeddings:
 ```python
 import openai
 import base64
@@ -361,17 +541,17 @@ def image_to_base64(image_path):
 image_uri = image_to_base64("images/attention.png")
 
 # Generate embeddings for text+image
-vision_embedding = client.embeddings.create(
+multimodal_embedding = client.embeddings.create(
     model="mlx-community/Qwen2.5-VL-3B-Instruct-4bit",
     input=["Describe the image in detail"],
     extra_body={"image_url": image_uri}
 )
-print(f"Vision embedding dimension: {len(vision_embedding.data[0].embedding)}")
+print(f"Multimodal embedding dimension: {len(multimodal_embedding.data[0].embedding)}")
 ```
 
 > **Note:** Replace the model name and image path as needed. The `extra_body` parameter is used to pass the image data URI to the API.
 
-> **Warning:** Make sure you're running the server with `--model-type vlm` when making vision requests. If you send a vision request to a server running with `--model-type lm` (text-only model), you'll receive a 400 error with a message that vision requests are not supported with text-only models.
+> **Warning:** Make sure you're running the server with `--model-type vlm` when making multimodal requests (with images or audio). If you send a multimodal request to a server running with `--model-type lm` (text-only model), you'll receive a 400 error with a message that multimodal requests are not supported with text-only models.
 
 ## Request Queue System
 
@@ -396,7 +576,7 @@ The queue system consists of two main components:
 
 2. **Model Handlers**: Specialized handlers for different model types:
    - `MLXLMHandler`: Manages text-only model requests
-   - `MLXVLMHandler`: Manages vision-language model requests
+   - `MLXVLMHandler`: Manages multimodal model requests
 
 ### Queue Monitoring
 
@@ -548,6 +728,20 @@ The server implements OpenAI-compatible API response schemas to ensure seamless 
 }
 ```
 
+### Image Generation Response
+
+```json
+{
+  "created": 1677858242,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAAANSUhEUgAA...",
+      "url": null
+    }
+  ]
+}
+```
+
 ### Error Response
 
 ```json
@@ -603,6 +797,19 @@ The repository includes example notebooks to help you get started with different
     </a>
   </p>
 
+- **audio_examples.ipynb**: A comprehensive guide to audio processing capabilities with MLX Server, including:
+  - Setting up connection to MLX Server for audio processing
+  - Loading and encoding audio files for API transmission
+  - Sending audio input to multimodal models for analysis
+  - Combining audio with text prompts for rich, context-aware responses
+  - Exploring different types of audio analysis prompts
+  - Understanding audio transcription and content analysis capabilities
+
+- **image_generations.ipynb**: A comprehensive guide to image generation using MLX Flux models, including:
+  - Setting up connection to MLX Server for image generation
+  - Basic image generation with default parameters
+  - Advanced image generation with custom parameters (negative prompts, steps, seed)
+
 
 ## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.
@@ -648,6 +855,8 @@ We extend our heartfelt gratitude to the following individuals and organizations
 - [MLX team](https://github.com/ml-explore/mlx) for developing the groundbreaking MLX framework, which provides the foundation for efficient machine learning on Apple Silicon
 - [mlx-lm](https://github.com/ml-explore/mlx-lm) for efficient large language models support
 - [mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main) for pioneering multimodal model support within the MLX ecosystem
+- [mlx-embeddings](https://github.com/Blaizzy/mlx-embeddings) for text embeddings generation with optimized memory management
+- [mflux](https://github.com/filipstrand/mflux) for Flux-based image generation models
 - [mlx-community](https://huggingface.co/mlx-community) for curating and maintaining a diverse collection of high-quality MLX models
 
 ### Open Source Community
