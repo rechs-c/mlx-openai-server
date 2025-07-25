@@ -75,8 +75,10 @@ class ImageProcessor(BaseProcessor):
         else:
             new_height = max_size
             new_width = int(width * max_size / height)
-            
-        return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        return image
 
     def _prepare_image_for_saving(self, image: Image.Image) -> Image.Image:
         if image.mode in ('RGBA', 'LA'):
@@ -90,14 +92,16 @@ class ImageProcessor(BaseProcessor):
             return image.convert('RGB')
         return image
 
-    def _process_media_data(self, data: bytes, cached_path: str) -> str:
+    def _process_media_data(self, data: bytes, cached_path: str, **kwargs) -> str:
         """Process image data and save to cached path."""
         image = None
+        resize = kwargs.get("resize", True)
         try:
             with Image.open(BytesIO(data), mode='r') as image:
-                image = self._resize_image_keep_aspect_ratio(image)
+                if resize:
+                    image = self._resize_image_keep_aspect_ratio(image)
                 image = self._prepare_image_for_saving(image)
-                image.save(cached_path, 'JPEG', quality=100, optimize=True)
+                image.save(cached_path, 'PNG', quality=100, optimize=True)
             
             self._cleanup_old_files()
             return cached_path
@@ -109,13 +113,13 @@ class ImageProcessor(BaseProcessor):
                 except:
                     pass
 
-    async def process_image_url(self, image_url: str) -> str:
+    async def process_image_url(self, image_url: str, resize: bool = True) -> str:
         """Process a single image URL and return path to cached file."""
-        return await self._process_single_media(image_url)
+        return await self._process_single_media(image_url, resize=resize)
 
-    async def process_image_urls(self, image_urls: List[str]) -> List[str]:
+    async def process_image_urls(self, image_urls: List[str], resize: bool = True) -> List[str]:
         """Process multiple image URLs and return paths to cached files."""
-        tasks = [self.process_image_url(url) for url in image_urls]
+        tasks = [self.process_image_url(url, resize=resize) for url in image_urls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         # Force garbage collection after batch processing
         gc.collect()
