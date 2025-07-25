@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
+    parser.add_argument("--disable-auto-resize", action="store_true", help="Disable automatic model resizing. Only work for Vision Language Models.")
     
     args = parser.parse_args()
     
@@ -84,7 +85,8 @@ def create_lifespan(config_args):
             if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
                     model_path=model_identifier,
-                    max_concurrency=config_args.max_concurrency
+                    max_concurrency=config_args.max_concurrency,
+                    disable_auto_resize=getattr(config_args, 'disable_auto_resize', False)
                 )
             elif config_args.model_type == "image-generation":
                 handler = MLXFluxHandler(

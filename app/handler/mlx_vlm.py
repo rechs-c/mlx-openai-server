@@ -21,7 +21,7 @@ class MLXVLMHandler:
     Provides caching, concurrent image processing, audio processing, and robust error handling.
     """
 
-    def __init__(self, model_path: str, max_workers: int = 4, max_concurrency: int = 1):
+    def __init__(self, model_path: str, max_workers: int = 4, max_concurrency: int = 1, disable_auto_resize: bool = False):
         """
         Initialize the handler with the specified model path.
         
@@ -29,11 +29,13 @@ class MLXVLMHandler:
             model_path (str): Path to the model directory.
             max_workers (int): Maximum number of worker threads for image processing.
             max_concurrency (int): Maximum number of concurrent model inference tasks.
+            disable_auto_resize (bool): Whether to disable automatic image resizing.
         """
         self.model_path = model_path
         self.model = MLX_VLM(model_path)
         self.image_processor = ImageProcessor(max_workers)
         self.audio_processor = AudioProcessor(max_workers)
+        self.disable_auto_resize = disable_auto_resize
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
         # Initialize request queue for multimodal and text tasks
@@ -42,6 +44,8 @@ class MLXVLMHandler:
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
         
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
+        if disable_auto_resize:
+            logger.info("Auto-resize is disabled for image processing")
 
     def get_models(self) -> List[Dict[str, Any]]:
         """
@@ -245,8 +249,8 @@ class MLXVLMHandler:
             # Process the image URL to get a local file path
             images = []
             if request.image_url:
-                image_path = await self.image_processor.process_image_url(image_url)
-                images.append(image_path)
+                image_result = await self.image_processor.process_image_url(image_url, resize=not self.disable_auto_resize)
+                images.append(image_result["path"])
             request_id = f"embeddings-{uuid.uuid4()}"
             request_data = {
                 "type": "embeddings",
@@ -523,9 +527,8 @@ class MLXVLMHandler:
                         raise HTTPException(status_code=400, detail=content)
 
             # Process images and audio files
-            image_paths = await self.image_processor.process_image_urls(image_urls)
+            image_paths = await self.image_processor.process_image_urls(image_urls, resize=not self.disable_auto_resize)
             audio_paths = await self.audio_processor.process_audio_urls(audio_urls)
-            
 
             # Get model parameters from the request
             temperature = request.temperature or 0.7
