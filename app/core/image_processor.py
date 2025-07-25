@@ -77,6 +77,7 @@ class ImageProcessor(BaseProcessor):
             new_width = int(width * max_size / height)
 
         image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        logger.info(f"Resized image to {new_width}x{new_height} from {width}x{height}")
 
         return image
 
