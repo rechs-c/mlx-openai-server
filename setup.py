@@ -13,8 +13,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.3.1",
-        "mlx-lm==0.26.0",
+        "mlx-vlm==0.3.2",
+        "mlx-lm==0.26.2",
         "mlx-embeddings==0.0.3",
         "mflux==0.9.3",
         "fastapi==0.115.14",
@@ -22,6 +22,7 @@ setup(
         "Pillow==10.4.0",
         "click==8.2.1",
         "loguru==0.7.3",
+        "outlines==1.1.0",
     ],
     extras_require={
         "dev": [
