@@ -20,6 +20,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
   - [Starting the Server](#starting-the-server)
   - [CLI Usage](#cli-usage)
   - [Using the API](#using-the-api)
+  - [Structured Outputs](#structured-outputs-with-json-schema)
 - [Request Queue System](#request-queue-system)
 - [API Response Schemas](#api-response-schemas)
 - [Example Notebooks](#example-notebooks)
@@ -485,6 +486,94 @@ if completion.choices[0].message.tool_calls:
     print(final_response.choices[0].message.content)
 ```
 
+#### Structured Outputs with JSON Schema
+
+The server supports structured outputs using JSON schema, allowing you to get responses in specific JSON formats:
+
+```python
+import openai
+import json
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Define the messages and response format
+messages = [
+    {
+        "role": "system",
+        "content": "Extract the address from the user input into the specified JSON format."
+    },
+    {
+        "role": "user",
+        "content": "Please format this address: 1 Hacker Wy Menlo Park CA 94025"
+    }
+]
+
+response_format = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "Address",
+        "schema": {
+            "properties": {
+                "address": {
+                    "type": "object",
+                    "properties": {
+                        "street": {"type": "string"},
+                        "city": {"type": "string"},
+                        "state": {
+                            "type": "string", 
+                            "description": "2 letter abbreviation of the state"
+                        },
+                        "zip": {
+                            "type": "string", 
+                            "description": "5 digit zip code"
+                        }
+                    },
+                    "required": ["street", "city", "state", "zip"]
+                }
+            },
+            "required": ["address"],
+            "type": "object"
+        }
+    }
+}
+
+# Make the API call with structured output
+completion = client.chat.completions.create(
+    model="local-model",
+    messages=messages,
+    response_format=response_format
+)
+
+# Parse the structured response
+response_content = completion.choices[0].message.content
+parsed_address = json.loads(response_content)
+print("Structured Address:")
+print(json.dumps(parsed_address, indent=2))
+```
+
+**Response Format Parameters:**
+- `type`: Must be set to `"json_schema"` for structured outputs
+- `json_schema`: A JSON schema object defining the expected response structure
+  - `name`: Optional name for the schema
+  - `schema`: The actual JSON schema definition with properties, types, and requirements
+
+**Example Response:**
+```json
+{
+  "address": {
+    "street": "1 Hacker Wy",
+    "city": "Menlo Park",
+    "state": "CA",
+    "zip": "94025"
+  }
+}
+```
+
+> **Note:** Structured outputs work with text-only models (`--model-type lm`). The model will attempt to format its response according to the provided JSON schema.
+
 #### Embeddings
 
 1. Text-only model embeddings:
@@ -765,6 +854,13 @@ The repository includes example notebooks to help you get started with different
   - Handling function call responses
   - Working with streaming function calls
   - Building multi-turn conversations with tool use
+
+- **structured_outputs_examples.ipynb**: A comprehensive guide to using structured outputs with JSON schema, including:
+  - Setting up JSON schema definitions
+  - Making requests with response format specifications
+  - Parsing structured responses
+  - Working with complex nested schemas
+  - Building data extraction pipelines with structured outputs
 
 - **vision_examples.ipynb**: A comprehensive guide to using the vision capabilities of the API, including:
   - Processing image inputs in various formats
