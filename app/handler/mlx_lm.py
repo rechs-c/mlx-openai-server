@@ -1,18 +1,17 @@
-import asyncio
+import gc
 import time
 import uuid
+import asyncio
 from http import HTTPStatus
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
-import gc
-
 from fastapi import HTTPException
 from loguru import logger
-
+from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
 from app.handler.parser import get_parser
-from app.models.mlx_lm import MLX_LM
-from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
 from app.utils.errors import create_error_response
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
+
 
 class MLXLMHandler:
     """
@@ -30,8 +29,8 @@ class MLXLMHandler:
         """
         self.model_path = model_path
         self.model = MLX_LM(model_path)
-        self.model_type = self.model.get_model_type()
         self.model_created = int(time.time())  # Store creation time when model is loaded
+        self.model_type = self.model.get_model_type()
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
@@ -287,26 +286,19 @@ class MLXLMHandler:
             Tuple containing the formatted chat messages and model parameters.
         """
         try:
-            # Get model parameters from the request
-            temperature = request.temperature or 0.7
-            top_p = request.top_p or 1.0
-            frequency_penalty = request.frequency_penalty or 0.0
-            presence_penalty = request.presence_penalty or 0.0
-            max_tokens = request.max_tokens or 1024
-            tools = request.tools or None
-            chat_template_kwargs = request.chat_template_kwargs
+            request_dict = request.model_dump()
+            tools = request_dict.pop("tools", None)
+            tool_choice = request_dict.pop("tool_choice", None)
+            
             if tools:
-                chat_template_kwargs.tools = tools
+                if tool_choice != "auto":
+                    raise HTTPException(status_code=400, detail=create_error_response("Tool choice must be 'auto' when tools are provided.", "bad_request", HTTPStatus.BAD_REQUEST))
+                request_dict["chat_template_kwargs"]["tools"] = tools
 
-            model_params = {
-                "temperature": temperature,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "presence_penalty": presence_penalty,
-                "max_tokens": max_tokens,
-                "tools": tools,
-                "chat_template_kwargs": chat_template_kwargs.model_dump()
-            }
+            if request_dict.get("response_format", None):
+                response_format = request_dict.pop("response_format", None)
+                if response_format.get("type") == "json_schema":
+                    request_dict["schema"] = response_format.get("json_schema", None).get("schema", None)
             
             # Format chat messages
             chat_messages = []
@@ -316,7 +308,7 @@ class MLXLMHandler:
                     "content": message.content
                 })
             
-            return chat_messages, model_params
+            return chat_messages, request_dict
         
         except Exception as e:
             logger.error(f"Failed to prepare text request: {str(e)}")

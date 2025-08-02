@@ -1,12 +1,15 @@
+import gc
 import mlx.core as mx
 from mlx_lm.utils import load
 from mlx_lm.generate import (
     generate,
     stream_generate,
 )
-from mlx_lm.sample_utils import make_sampler
+from outlines.processors import JSONLogitsProcessor
+from mlx_lm.sample_utils import make_sampler, make_logits_processors
+from app.utils.outlines_transformer_tokenizer import OutlinesTransformerTokenizer
+
 from typing import List, Dict, Union, Generator, Optional, Tuple
-import gc
 
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_TOP_P = 0.95
@@ -30,6 +33,7 @@ class MLX_LM:
             self.pad_token_id = self.tokenizer.pad_token_id
             self.bos_token = self.tokenizer.bos_token
             self.model_type = self.model.model_type
+            self.outlines_tokenizer = OutlinesTransformerTokenizer(self.tokenizer)
         except Exception as e:
             raise ValueError(f"Error loading model: {str(e)}")
         
@@ -156,12 +160,26 @@ class MLX_LM:
             "top_k": kwargs.get("top_k", DEFAULT_TOP_K),
             "min_p": kwargs.get("min_p", DEFAULT_MIN_P)
         }
+
+        repetition_penalty = kwargs.get("repetition_penalty", 1.0)
+        repetition_context_size = kwargs.get("repetition_context_size", 20)
+        logits_processors = make_logits_processors(repetition_penalty=repetition_penalty, repetition_context_size=repetition_context_size)
+        json_schema = kwargs.get("schema", None)
+        if json_schema:
+            logits_processors.append(
+                JSONLogitsProcessor(
+                    schema = json_schema,
+                    tokenizer = self.outlines_tokenizer,
+                    tensor_library_name = "mlx"
+                )
+            )
         
         mx.random.seed(seed)
 
         # Prepare input tokens
-        prompt = self.tokenizer.apply_chat_template(
+        input_tokens = self.tokenizer.apply_chat_template(
             messages,
+            add_generation_prompt=True,
             **chat_template_kwargs
         )
         
@@ -173,16 +191,18 @@ class MLX_LM:
             return generate(
                 self.model,
                 self.tokenizer,
-                prompt,
+                input_tokens,
                 sampler=sampler,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                logits_processors=logits_processors
             )
         else:
             # Streaming mode: return generator of chunks
             return stream_generate(
                 self.model,
                 self.tokenizer,
-                prompt,
+                input_tokens,
                 sampler=sampler,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                logits_processors=logits_processors
             )
