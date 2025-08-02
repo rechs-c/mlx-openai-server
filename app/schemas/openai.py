@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
+import random
 
 from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
@@ -88,17 +89,21 @@ class ChatCompletionRequestBase(BaseModel):
     model: str = Field(Config.TEXT_MODEL, description="The model to use for completion.")
     messages: List[Message] = Field(..., description="The list of messages in the conversation.")
     tools: Optional[List[Dict[str, Any]]] = Field(None, description="List of tools available for the request.")
-    tool_choice: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Tool choice for the request.")
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = Field("auto", description="Tool choice for the request.")
     max_tokens: Optional[int] = Field(None, description="The maximum number of tokens to generate.")
     temperature: Optional[float] = Field(0.7, description="Sampling temperature.")
     top_p: Optional[float] = Field(1.0, description="Nucleus sampling probability.")
+    top_k: Optional[int] = Field(20, description="Top-k sampling parameter.")
+    min_p: Optional[float] = Field(0.0, description="Minimum probability for token generation.")
     frequency_penalty: Optional[float] = Field(0.0, description="Frequency penalty for token generation.")
     presence_penalty: Optional[float] = Field(0.0, description="Presence penalty for token generation.")
     stop: Optional[List[str]] = Field(None, description="List of stop sequences.")
     n: Optional[int] = Field(1, description="Number of completions to generate.")
-    response_format: Optional[Dict[str, str]] = Field(None, description="Format for the response.")
-    seed: Optional[int] = Field(None, description="Random seed for reproducibility.")
+    response_format: Optional[Dict[str, Any]] = Field(None, description="Format for the response.")
+    seed: Optional[int] = Field(random.randint(0, 1000000), description="Random seed for reproducibility.")
     user: Optional[str] = Field(None, description="User identifier.")
+    repetition_penalty: Optional[float] = Field(1.05, description="Repetition penalty for token generation.")
+    repetition_context_size: Optional[int] = Field(20, description="Repetition context size for token generation.")
 
     @validator("messages")
     def check_messages_not_empty(cls, v):
@@ -163,8 +168,6 @@ class ChatTemplateKwargs(BaseModel):
     Represents the arguments for a chat template.
     """
     enable_thinking: bool = Field(False, description="Whether to enable thinking mode.")
-    tools: Optional[List[Dict[str, Any]]] = Field(None, description="List of tools to use in the request.")
-    add_generation_prompt: bool = Field(True, description="Whether to add a generation prompt to the request.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):
