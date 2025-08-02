@@ -1,17 +1,16 @@
-import asyncio
+import gc
 import time
 import uuid
 from http import HTTPStatus
 from typing import Any, Dict, List
-import gc
 
 from fastapi import HTTPException
 from loguru import logger
 
 from app.core.queue import RequestQueue
-from app.models.mlx_embeddings import MLX_Embeddings
 from app.schemas.openai import EmbeddingRequest
 from app.utils.errors import create_error_response
+from app.models.mlx_embeddings import MLX_Embeddings
 
 class MLXEmbeddingsHandler:
     """
