@@ -1,12 +1,21 @@
 from app.handler.parser.base import BaseToolParser, BaseThinkingParser
 from app.handler.parser.qwen3 import Qwen3ToolParser, Qwen3ThinkingParser
+from app.handler.parser.glm4_moe import Glm4MoeToolParser, Glm4MoeThinkingParser
 from typing import Tuple
-__all__ = ['BaseToolParser', 'BaseThinkingParser', 'Qwen3ToolParser', 'Qwen3ThinkingParser']
+__all__ = ['BaseToolParser', 'BaseThinkingParser', 'Qwen3ToolParser', 'Qwen3ThinkingParser', 'Glm4MoeToolParser', 'Glm4MoeThinkingParser']
 
 parser_map = {
     'qwen3': {
         "tool_parser": Qwen3ToolParser,
         "thinking_parser": Qwen3ThinkingParser
+    },
+    'qwen3_moe': {
+        "tool_parser": Qwen3ToolParser,
+        "thinking_parser": Qwen3ThinkingParser
+    },
+    'glm4_moe': {
+        "tool_parser": Glm4MoeToolParser,
+        "thinking_parser": Glm4MoeThinkingParser
     }
 }
 
