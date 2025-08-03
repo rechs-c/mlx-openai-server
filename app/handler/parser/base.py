@@ -31,22 +31,11 @@ class BaseThinkingParser:
             "reasoning_content": chunk
         }, False
 
-class ParseState:
-    NORMAL = 0
-    FOUND_PREFIX = 1
-    FOUND_FUNC_NAME = 2
-    FOUND_FUNC_ARGS = 3
-    PROCESS_FUNC_ARGS = 4
-    @staticmethod
-    def next_state(state):
-        return (state + 1) % 5
-
 class BaseToolParser:
     def __init__(self, tool_open: str, tool_close: str):
         self.tool_open = tool_open
         self.tool_close = tool_close
         self.buffer = ""
-        self.state = ParseState.NORMAL
 
     def get_tool_open(self):
         return self.tool_open
@@ -75,73 +64,48 @@ class BaseToolParser:
             start = end_tool + len(self.tool_close)
         return res, content[start:].strip()
     
-    def parse_stream(self, chunk: str):
-        if self.state == ParseState.NORMAL:
-            if chunk.strip() == self.tool_open:
-                self.state = ParseState.next_state(self.state)
-                self.buffer = ""
-                self.current_func = None
-                return None
-            return chunk
-
-        if self.state == ParseState.FOUND_PREFIX:
-            self.buffer += chunk
-            # Try to parse function name
-            if self.buffer.count('"') >= 4:
-                # try parse json
-                try:
-                    json_output = json.loads(self.buffer.rstrip(',') + "}")
-                    self.current_func = {
-                        "name": None
-                    }
-                    self.state = ParseState.next_state(self.state)
-                    return {
-                        "name": json_output["name"],
-                        "arguments": ""
-                    }
-                except json.JSONDecodeError:
-                    return None
-            return None
-
-        if self.state == ParseState.FOUND_FUNC_NAME:
-            # Try to parse function arguments
-            if chunk.strip() == "arguments":
-                self.state = ParseState.next_state(self.state)
-                return None
-            return None
+    def parse_stream(self, chunk: str) -> List[any]:
+        self.buffer += chunk
+        outputs = []
         
-        if self.state == ParseState.FOUND_FUNC_ARGS:
-            if ":" in chunk:
-                chunk = chunk[:chunk.find(":") + 1: ].lstrip()
-                self.state = ParseState.next_state(self.state)
-                if not chunk:
-                    return None
-            return None
+        while True:
+            start_idx = self.buffer.find(self.tool_open)
+            end_idx = self.buffer.find(self.tool_close)
 
-        if '}\n' in chunk:
-            chunk = chunk[:chunk.find('}\n')]
-
-        if chunk == self.tool_close:
-            # end of arguments
-            # reset
-            self.state = ParseState.NORMAL
-            self.buffer = ""
-            self.current_func = None
-            return None
-
-        return {
-            "name": None,
-            "arguments": chunk
-        }
-       
-        
-        
-            
+            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                # A full tool call is present
                 
+                # 1. Yield any text before the tool call
+                if start_idx > 0:
+                    outputs.append(self.buffer[:start_idx])
+                
+                # 2. Parse and yield the tool call
+                end_of_tool_close = end_idx + len(self.tool_close)
+                tool_call_block = self.buffer[start_idx:end_of_tool_close]
+                
+                parsed_tools, _ = self.parse(tool_call_block)
+                if parsed_tools:
+                    outputs.extend(parsed_tools)
+                
+                # 3. Update buffer to what's left and continue loop
+                self.buffer = self.buffer[end_of_tool_close:]
+                continue
             
+            # If no full tool call is found, break the loop
+            break
         
-                    
-        
-
-        
-            
+        # After the loop, the buffer might contain the start of a tool call,
+        # or just plain text. We should only yield the text part that is certain.
+        start_idx = self.buffer.find(self.tool_open)
+        if start_idx != -1:
+            # We have an incomplete tool call. Yield text before it.
+            if start_idx > 0:
+                outputs.append(self.buffer[:start_idx])
+                self.buffer = self.buffer[start_idx:]
+        else:
+            # No sign of a tool call, so it's all plain text.
+            if self.buffer:
+                outputs.append(self.buffer)
+                self.buffer = ""
+                
+        return outputs if outputs else None

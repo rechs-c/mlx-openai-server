@@ -12,13 +12,6 @@ ARG_VALUE_CLOSE = "</arg_value>"
 THINKING_OPEN = "<think>"
 THINKING_CLOSE = "</think>"
 
-class ParseState:
-    NORMAL = 0
-    IN_TOOL_CALL = 1
-    PARSING_FUNC_NAME = 2
-    PARSING_ARG_KEY = 3
-    PARSING_ARG_VALUE = 4
-
 class Glm4MoeToolParser(BaseToolParser):
     """Parser for GLM4-MoE model's tool response format."""
     
@@ -83,52 +76,6 @@ class Glm4MoeToolParser(BaseToolParser):
             remaining_content = remaining_content[end_tool + len(self.tool_close):]
 
         return res, remaining_content.strip()
-
-    def parse_stream(self, chunk: str) -> List[any]:
-        self.buffer += chunk
-        outputs = []
-        
-        while True:
-            start_idx = self.buffer.find(self.tool_open)
-            end_idx = self.buffer.find(self.tool_close)
-
-            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-                # A full tool call is present
-                
-                # 1. Yield any text before the tool call
-                if start_idx > 0:
-                    outputs.append(self.buffer[:start_idx])
-                
-                # 2. Parse and yield the tool call
-                end_of_tool_close = end_idx + len(self.tool_close)
-                tool_call_block = self.buffer[start_idx:end_of_tool_close]
-                
-                parsed_tools, _ = self.parse(tool_call_block)
-                if parsed_tools:
-                    outputs.extend(parsed_tools)
-                
-                # 3. Update buffer to what's left and continue loop
-                self.buffer = self.buffer[end_of_tool_close:]
-                continue
-            
-            # If no full tool call is found, break the loop
-            break
-        
-        # After the loop, the buffer might contain the start of a tool call,
-        # or just plain text. We should only yield the text part that is certain.
-        start_idx = self.buffer.find(self.tool_open)
-        if start_idx != -1:
-            # We have an incomplete tool call. Yield text before it.
-            if start_idx > 0:
-                outputs.append(self.buffer[:start_idx])
-                self.buffer = self.buffer[start_idx:]
-        else:
-            # No sign of a tool call, so it's all plain text.
-            if self.buffer:
-                outputs.append(self.buffer)
-                self.buffer = ""
-                
-        return outputs if outputs else None
 
 
 class Glm4MoeThinkingParser(BaseThinkingParser):
