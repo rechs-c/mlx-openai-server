@@ -89,8 +89,8 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
             )
         
         # Process the request based on type
-        return await process_multimodal_request(handler, request, raw_request) if is_multimodal_request \
-            else await process_text_request(handler, request, raw_request)
+        return await process_multimodal_request(handler, request) if is_multimodal_request \
+            else await process_text_request(handler, request)
     except Exception as e:
         logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -201,9 +201,8 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
     )
 
 
-async def handle_stream_response(generator: AsyncGenerator, model: str, raw_request: Request):
+async def handle_stream_response(generator: AsyncGenerator, model: str):
     """Handle streaming response generation (OpenAI-compatible)."""
-    debug = raw_request.app.state.handler.args.debug
     chat_index = get_id()
     created_time = int(time.time())
     try:
@@ -217,15 +216,13 @@ async def handle_stream_response(generator: AsyncGenerator, model: str, raw_requ
             model=model,
             choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
         )
-        if debug:
-            logger.debug(f"Yielding first chunk: {first_chunk.model_dump_json()}")
+        logger.debug(f"Yielding first chunk: {first_chunk.model_dump_json()}")
         yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
         async for chunk in generator:
             if chunk:
                 if isinstance(chunk, str):
                     response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
-                    if debug:
-                        logger.debug(f"Yielding chunk: {response_chunk.model_dump_json()}")
+                    logger.debug(f"Yielding chunk: {response_chunk.model_dump_json()}")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
@@ -236,8 +233,7 @@ async def handle_stream_response(generator: AsyncGenerator, model: str, raw_requ
                         **chunk
                     }
                     response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
-                    if debug:
-                        logger.debug(f"Yielding tool call chunk: {response_chunk.model_dump_json()}")
+                    logger.debug(f"Yielding tool call chunk: {response_chunk.model_dump_json()}")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
         logger.error(f"Error in stream wrapper: {str(e)}")
@@ -247,28 +243,26 @@ async def handle_stream_response(generator: AsyncGenerator, model: str, raw_requ
     finally:
         # Final chunk: finish_reason and [DONE], as per OpenAI
         final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
-        if debug:
-            logger.debug(f"Yielding final chunk: {final_chunk.model_dump_json()}")
+        logger.debug(f"Yielding final chunk: {final_chunk.model_dump_json()}")
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
-        if debug:
-            logger.debug("Yielding [DONE]")
+        logger.debug("Yielding [DONE]")
         yield "data: [DONE]\n\n"
 
-async def process_multimodal_request(handler, request: ChatCompletionRequest, raw_request: Request):
+async def process_multimodal_request(handler, request: ChatCompletionRequest):
     """Process multimodal-specific requests."""
     if request.stream:
         return StreamingResponse(
-            handle_stream_response(handler.generate_multimodal_stream(request), request.model, raw_request),
+            handle_stream_response(handler.generate_multimodal_stream(request), request.model),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
         )
     return format_final_response(await handler.generate_multimodal_response(request), request.model)
 
-async def process_text_request(handler, request: ChatCompletionRequest, raw_request: Request):
+async def process_text_request(handler, request: ChatCompletionRequest):
     """Process text-only requests."""
     if request.stream:
         return StreamingResponse(
-            handle_stream_response(handler.generate_text_stream(request), request.model, raw_request),
+            handle_stream_response(handler.generate_text_stream(request), request.model),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
         )
