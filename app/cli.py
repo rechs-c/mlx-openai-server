@@ -9,7 +9,7 @@ from app.main import setup_server
 
 class Config:
     """Configuration container for server parameters."""
-    def __init__(self, model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False):
+    def __init__(self, model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, debug=False):
         self.model_path = model_path
         self.model_name = model_name
         self.model_type = model_type
@@ -19,6 +19,7 @@ class Config:
         self.queue_timeout = queue_timeout
         self.queue_size = queue_size
         self.disable_auto_resize = disable_auto_resize
+        self.debug = debug
 
     @property
     def model_identifier(self):
@@ -30,8 +31,9 @@ class Config:
 
 
 # Configure Loguru once at module level
-def configure_logging():
+def configure_logging(debug=False):
     """Set up optimized logging configuration."""
+    level = "DEBUG" if debug else "INFO"
     logger.remove()  # Remove default handler
     logger.add(
         sys.stderr, 
@@ -40,7 +42,7 @@ def configure_logging():
                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
                "✦ <level>{message}</level>",
         colorize=True,
-        level="INFO"
+        level=level
     )
 
 # Apply logging configuration
@@ -62,7 +64,7 @@ def cli():
 
 
 @lru_cache(maxsize=1)
-def get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
+def get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize, debug):
     """Cache and return server configuration to avoid redundant processing."""
     return Config(
         model_path=model_path,
@@ -73,7 +75,8 @@ def get_server_config(model_path, model_name, model_type, port, host, max_concur
         max_concurrency=max_concurrency,
         queue_timeout=queue_timeout,
         queue_size=queue_size,
-        disable_auto_resize=disable_auto_resize
+        disable_auto_resize=disable_auto_resize,
+        debug=debug
     )
 
 
@@ -161,14 +164,23 @@ def validate_model_args(model_path, model_name, model_type):
     is_flag=True,
     help="Disable automatic model resizing. Only work for Vision Language Models."
 )
-def launch(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging."
+)
+def launch(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize, debug):
     """Launch the MLX server with the specified model."""
     try:
+        # Reconfigure logging if debug mode is enabled
+        if debug:
+            configure_logging(debug=True)
+
         # Validate model arguments
         validate_model_args(model_path, model_name, model_type)
         
         # Get optimized configuration
-        args = get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize)
+        args = get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize, debug)
         
         # Display startup information
         print_startup_banner(args)
