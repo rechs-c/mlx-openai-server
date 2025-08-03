@@ -69,7 +69,7 @@ class Glm4MoeToolParser(BaseToolParser):
 
             res.append({
                 "name": func_name,
-                "arguments": json.dumps(arguments, ensure_ascii=False)
+                "arguments": arguments
             })
             
             # Move past the processed tool call block

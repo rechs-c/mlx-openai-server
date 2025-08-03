@@ -79,14 +79,28 @@ class BaseToolParser:
                 if start_idx > 0:
                     outputs.append(self.buffer[:start_idx])
                 
-                # 2. Parse and yield the tool call
+                # 2. Parse the tool call
                 end_of_tool_close = end_idx + len(self.tool_close)
                 tool_call_block = self.buffer[start_idx:end_of_tool_close]
                 
                 parsed_tools, _ = self.parse(tool_call_block)
-                if parsed_tools:
-                    outputs.extend(parsed_tools)
                 
+                if parsed_tools:
+                    # For each complete tool, split it into OpenAI-compatible delta chunks
+                    for tool in parsed_tools:
+                        # First chunk with the name
+                        outputs.append({
+                            "name": tool.get("name"),
+                            "arguments": ""
+                        })
+                        # Second chunk with the arguments
+                        # Note: The arguments from parse() should be a dict
+                        arguments_str = json.dumps(tool.get("arguments", {}), ensure_ascii=False)
+                        outputs.append({
+                            "name": None,
+                            "arguments": arguments_str
+                        })
+
                 # 3. Update buffer to what's left and continue loop
                 self.buffer = self.buffer[end_of_tool_close:]
                 continue
