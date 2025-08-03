@@ -22,6 +22,7 @@ setup(
         "Pillow==10.4.0",
         "click==8.2.1",
         "loguru==0.7.3",
+        "outlines==1.1.0",
     ],
     extras_require={
         "dev": [

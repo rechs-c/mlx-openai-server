@@ -7,7 +7,7 @@ import aiohttp
 import time
 import gc
 from loguru import logger
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 from abc import ABC, abstractmethod
 
@@ -88,7 +88,7 @@ class BaseProcessor(ABC):
         pass
 
     @abstractmethod
-    def _process_media_data(self, data: bytes, cached_path: str) -> str:
+    def _process_media_data(self, data: bytes, cached_path: str, **kwargs) -> Dict[str, Any]:
         """Process media data and save to cached path. Must be implemented by subclasses."""
         pass
 
@@ -121,7 +121,7 @@ class BaseProcessor(ABC):
             except Exception as e:
                 logger.warning(f"Failed to clean up old {self._get_media_type_name()} files: {str(e)}")
 
-    async def _process_single_media(self, media_url: str) -> str:
+    async def _process_single_media(self, media_url: str, **kwargs) -> str:
         try:
             media_hash = self._get_media_hash(media_url)
             media_format = self._get_media_format(media_url)
@@ -139,7 +139,7 @@ class BaseProcessor(ABC):
                 if not self._validate_media_data(data):
                     raise ValueError(f"Invalid {self._get_media_type_name()} file format")
                 
-                return self._process_media_data(data, cached_path)
+                return self._process_media_data(data, cached_path, **kwargs)
 
             elif media_url.startswith("data:"):
                 _, encoded = media_url.split(",", 1)
@@ -151,7 +151,7 @@ class BaseProcessor(ABC):
                 if not self._validate_media_data(data):
                     raise ValueError(f"Invalid {self._get_media_type_name()} file format")
                 
-                return self._process_media_data(data, cached_path)
+                return self._process_media_data(data, cached_path, **kwargs)
             else:
                 session = await self._get_session()
                 async with session.get(media_url) as response:
@@ -161,7 +161,7 @@ class BaseProcessor(ABC):
                     if not self._validate_media_data(data):
                         raise ValueError(f"Invalid {self._get_media_type_name()} file format")
                     
-                    return self._process_media_data(data, cached_path)
+                    return self._process_media_data(data, cached_path, **kwargs)
 
         except Exception as e:
             logger.error(f"Failed to process {self._get_media_type_name()}: {str(e)}")

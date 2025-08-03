@@ -9,7 +9,7 @@ from app.main import setup_server
 
 class Config:
     """Configuration container for server parameters."""
-    def __init__(self, model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size):
+    def __init__(self, model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False):
         self.model_path = model_path
         self.model_name = model_name
         self.model_type = model_type
@@ -18,6 +18,7 @@ class Config:
         self.max_concurrency = max_concurrency
         self.queue_timeout = queue_timeout
         self.queue_size = queue_size
+        self.disable_auto_resize = disable_auto_resize
 
     @property
     def model_identifier(self):
@@ -61,7 +62,7 @@ def cli():
 
 
 @lru_cache(maxsize=1)
-def get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size):
+def get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
     """Cache and return server configuration to avoid redundant processing."""
     return Config(
         model_path=model_path,
@@ -71,7 +72,8 @@ def get_server_config(model_path, model_name, model_type, port, host, max_concur
         host=host,
         max_concurrency=max_concurrency,
         queue_timeout=queue_timeout,
-        queue_size=queue_size
+        queue_size=queue_size,
+        disable_auto_resize=disable_auto_resize
     )
 
 
@@ -90,6 +92,8 @@ def print_startup_banner(args):
     logger.info(f"⚡ Max Concurrency: {args.max_concurrency}")
     logger.info(f"⏱️ Queue Timeout: {args.queue_timeout} seconds")
     logger.info(f"📊 Queue Size: {args.queue_size}")
+    if hasattr(args, 'disable_auto_resize') and args.disable_auto_resize and args.model_type == "multimodal":
+        logger.info(f"🖼️ Auto-resize: Disabled")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
@@ -152,14 +156,19 @@ def validate_model_args(model_path, model_name, model_type):
     type=int, 
     help="Maximum queue size for pending requests"
 )
-def launch(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size):
+@click.option(
+    "--disable-auto-resize",
+    is_flag=True,
+    help="Disable automatic model resizing. Only work for Vision Language Models."
+)
+def launch(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
     """Launch the MLX server with the specified model."""
     try:
         # Validate model arguments
         validate_model_args(model_path, model_name, model_type)
         
         # Get optimized configuration
-        args = get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size)
+        args = get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize)
         
         # Display startup information
         print_startup_banner(args)
