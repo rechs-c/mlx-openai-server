@@ -9,14 +9,14 @@ parser_map = {
         "tool_parser": Qwen3ToolParser,
         "thinking_parser": Qwen3ThinkingParser
     },
-    'qwen3_moe': {
-        "tool_parser": Qwen3ToolParser,
-        "thinking_parser": Qwen3ThinkingParser
-    },
-    'glm4_moe': {
-        "tool_parser": Glm4MoeToolParser,
-        "thinking_parser": Glm4MoeThinkingParser
-    }
+    # 'qwen3_moe': {
+    #     "tool_parser": Qwen3ToolParser,
+    #     "thinking_parser": Qwen3ThinkingParser
+    # },
+    # 'glm4_moe': {
+    #     "tool_parser": Glm4MoeToolParser,
+    #     "thinking_parser": Glm4MoeThinkingParser
+    # }
 }
 
 def get_parser(model_name: str) -> Tuple[BaseToolParser, BaseThinkingParser]:
