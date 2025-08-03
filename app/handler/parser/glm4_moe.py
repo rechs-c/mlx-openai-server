@@ -27,11 +27,7 @@ class Glm4MoeToolParser(BaseToolParser):
             tool_open=TOOL_OPEN,
             tool_close=TOOL_CLOSE   
         )
-        self.state = ParseState.NORMAL
         self.buffer = ""
-        self.current_func_name = None
-        self.current_arg_key = None
-        self.current_arguments = {}
 
     def parse(self, content: str) -> Tuple[List[Dict[str, Any]], str]:
         res = []
@@ -52,12 +48,16 @@ class Glm4MoeToolParser(BaseToolParser):
             # Extract content within the tool_call tags
             inner_content = tool_content_full[len(self.tool_open):-len(self.tool_close)].strip()
             
-            lines = inner_content.split('\n')
-            func_name = lines[0].strip()
-            
+            # Find the first occurrence of a tag to correctly split function name
+            first_tag_pos = inner_content.find(ARG_KEY_OPEN)
+            if first_tag_pos != -1:
+                func_name = inner_content[:first_tag_pos].strip()
+                arg_content = inner_content[first_tag_pos:]
+            else:
+                func_name = inner_content.strip()
+                arg_content = ""
+
             arguments = {}
-            # The rest of the lines contain arguments
-            arg_content = "\n".join(lines[1:])
             
             key_start = 0
             while True:
@@ -84,118 +84,51 @@ class Glm4MoeToolParser(BaseToolParser):
 
         return res, remaining_content.strip()
 
-    def _reset_state(self):
-        self.state = ParseState.NORMAL
-        self.buffer = ""
-        self.current_func_name = None
-        self.current_arg_key = None
-        self.current_arguments = {}
-
-    def parse_stream(self, chunk: str):
+    def parse_stream(self, chunk: str) -> List[any]:
         self.buffer += chunk
+        outputs = []
         
-        if self.state == ParseState.NORMAL:
-            if self.tool_open in self.buffer:
-                self.state = ParseState.IN_TOOL_CALL
-                # Discard content before tool_open
-                self.buffer = self.buffer[self.buffer.find(self.tool_open):]
-            else:
-                # Not in a tool call, return the chunk as is
+        while True:
+            start_idx = self.buffer.find(self.tool_open)
+            end_idx = self.buffer.find(self.tool_close)
+
+            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                # A full tool call is present
+                
+                # 1. Yield any text before the tool call
+                if start_idx > 0:
+                    outputs.append(self.buffer[:start_idx])
+                
+                # 2. Parse and yield the tool call
+                end_of_tool_close = end_idx + len(self.tool_close)
+                tool_call_block = self.buffer[start_idx:end_of_tool_close]
+                
+                parsed_tools, _ = self.parse(tool_call_block)
+                if parsed_tools:
+                    outputs.extend(parsed_tools)
+                
+                # 3. Update buffer to what's left and continue loop
+                self.buffer = self.buffer[end_of_tool_close:]
+                continue
+            
+            # If no full tool call is found, break the loop
+            break
+        
+        # After the loop, the buffer might contain the start of a tool call,
+        # or just plain text. We should only yield the text part that is certain.
+        start_idx = self.buffer.find(self.tool_open)
+        if start_idx != -1:
+            # We have an incomplete tool call. Yield text before it.
+            if start_idx > 0:
+                outputs.append(self.buffer[:start_idx])
+                self.buffer = self.buffer[start_idx:]
+        else:
+            # No sign of a tool call, so it's all plain text.
+            if self.buffer:
+                outputs.append(self.buffer)
                 self.buffer = ""
-                return chunk
-
-        if self.state == ParseState.IN_TOOL_CALL:
-            # remove tool_open tag
-            self.buffer = self.buffer.replace(self.tool_open, "", 1)
-            self.state = ParseState.PARSING_FUNC_NAME
-        
-        if self.state == ParseState.PARSING_FUNC_NAME:
-            if '\n' in self.buffer or ARG_KEY_OPEN in self.buffer:
-                # Determine the split token based on which appears first
-                pos_newline = self.buffer.find('\n')
-                pos_arg_key = self.buffer.find(ARG_KEY_OPEN)
-
-                # -1 means not found, so we treat it as infinity
-                if pos_newline == -1: pos_newline = float('inf')
-                if pos_arg_key == -1: pos_arg_key = float('inf')
-
-                if pos_newline < pos_arg_key:
-                    split_token = '\n'
-                elif pos_arg_key < pos_newline:
-                    split_token = ARG_KEY_OPEN
-                else: # Neither is found, or buffer is empty
-                    return None
-
-                func_name_part, rest = self.buffer.split(split_token, 1)
-                self.current_func_name = func_name_part.strip()
                 
-                # Prepend the split_token back if it was a tag
-                self.buffer = rest if split_token == '\n' else split_token + rest
-                
-                self.state = ParseState.PARSING_ARG_KEY
-                return {
-                    "name": self.current_func_name,
-                    "arguments": ""
-                }
-        
-        if self.state == ParseState.PARSING_ARG_KEY:
-            if ARG_KEY_OPEN in self.buffer and ARG_KEY_CLOSE in self.buffer:
-                start_key_idx = self.buffer.find(ARG_KEY_OPEN)
-                end_key_idx = self.buffer.find(ARG_KEY_CLOSE)
-                self.current_arg_key = self.buffer[start_key_idx + len(ARG_KEY_OPEN):end_key_idx].strip()
-                self.buffer = self.buffer[end_key_idx + len(ARG_KEY_CLOSE):]
-                self.state = ParseState.PARSING_ARG_VALUE
-
-        if self.state == ParseState.PARSING_ARG_VALUE:
-            # Stream out argument chunks as they arrive
-            # This part is tricky because we need to form valid JSON chunks
-            # A simplified approach: buffer until a full value is parsed
-            if ARG_VALUE_OPEN in self.buffer and ARG_VALUE_CLOSE in self.buffer:
-                start_val_idx = self.buffer.find(ARG_VALUE_OPEN)
-                end_val_idx = self.buffer.find(ARG_VALUE_CLOSE)
-                
-                # Ensure we have the full value tag pair
-                if start_val_idx < end_val_idx:
-                    value_part = self.buffer[start_val_idx + len(ARG_VALUE_OPEN):end_val_idx]
-                    self.current_arguments[self.current_arg_key] = value_part
-                    
-                    # Yield the argument as a JSON string part
-                    # To simplify, we yield the full argument dict each time
-                    arg_str = json.dumps({self.current_arg_key: value_part}, ensure_ascii=False)[1:-1] # remove {}
-                    
-                    self.buffer = self.buffer[end_val_idx + len(ARG_VALUE_CLOSE):]
-                    self.state = ParseState.PARSING_ARG_KEY # Ready for next key
-                    self.current_arg_key = None
-                    
-                    # This is a simplification. In reality, streaming JSON arguments is more complex.
-                    # We return a chunk of the arguments string.
-                    return {
-                        "name": None,
-                        "arguments": arg_str + ", " # Add comma for next arg
-                    }
-
-        if self.tool_close in self.buffer:
-            # End of tool call
-            # Clean up the buffer from the close tag
-            self.buffer = self.buffer[:self.buffer.find(self.tool_close)]
-            
-            # Potentially process any remaining buffer content if needed
-            # For now, we just reset
-            
-            final_args_str = ""
-            if self.buffer.strip() and self.current_arg_key:
-                 # This handles the final part of an argument value before the close tag
-                 final_args_str = self.buffer.strip()
-
-            self._reset_state()
-            # Return the final piece of argument and signal completion
-            return {
-                "name": None,
-                "arguments": final_args_str
-            }
-
-        # If nothing complete is parsed, return None to signal waiting for more chunks
-        return None
+        return outputs if outputs else None
 
 
 class Glm4MoeThinkingParser(BaseThinkingParser):
