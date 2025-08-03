@@ -212,6 +212,7 @@ class MLXLMHandler:
         Returns:
             str: The model's response.
         """
+        logger.debug(f"Processing request data. Type: {type(request_data)}, Data: {request_data}")
         try:
             # Check if the request is for embeddings
             if request_data.get("type") == "embeddings":
