@@ -68,7 +68,7 @@ class ChatCompletionMessageToolCall(BaseModel):
     id: str = Field(..., description="The ID of the tool call.")
     function: FunctionCall = Field(..., description="The function call details.")
     type: Literal["function"] = Field(..., description="The type of tool call, always 'function'.")
-    index: int = Field(..., description="The index of the tool call.")
+    index: Optional[int] = Field(None, description="The index of the tool call, used in streaming.")
 
 class Message(BaseModel):
     """
@@ -209,7 +209,7 @@ class ChoiceDeltaToolCall(BaseModel):
     """
     Represents a tool call delta in a streaming response.
     """
-    index: Optional[int] = Field(None, description="Index of the tool call delta.")
+    index: int = Field(..., description="Index of the tool call delta.")
     id: Optional[str] = Field(None, description="ID of the tool call delta.")
     function: Optional[ChoiceDeltaFunctionCall] = Field(None, description="Function call details in the delta.")
     type: Optional[str] = Field(None, description="Type of the tool call delta.")
