@@ -102,11 +102,9 @@ class MLXLMHandler:
             if tools and tool_parser:
                 for chunk in response_generator:
                     if chunk:
-                        # parse_stream returns a list of delta chunks
-                        delta_chunks = tool_parser.parse_stream(chunk.text)
-                        if delta_chunks:
-                            for delta in delta_chunks:
-                                yield delta
+                        # parse_stream is now a generator, so we can iterate over it
+                        for delta in tool_parser.parse_stream(chunk.text):
+                            yield delta
             else:
                 for chunk in response_generator:
                     if chunk:

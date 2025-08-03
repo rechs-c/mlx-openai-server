@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Generator
 
 
 class BaseThinkingParser:
@@ -64,9 +64,8 @@ class BaseToolParser:
             start = end_tool + len(self.tool_close)
         return res, content[start:].strip()
     
-    def parse_stream(self, chunk: str) -> List[any]:
+    def parse_stream(self, chunk: str) -> Generator[any, None, None]:
         self.buffer += chunk
-        outputs = []
         
         while True:
             start_idx = self.buffer.find(self.tool_open)
@@ -77,7 +76,7 @@ class BaseToolParser:
                 
                 # 1. Yield any text before the tool call
                 if start_idx > 0:
-                    outputs.append(self.buffer[:start_idx])
+                    yield self.buffer[:start_idx]
                 
                 # 2. Parse the tool call
                 end_of_tool_close = end_idx + len(self.tool_close)
@@ -89,17 +88,20 @@ class BaseToolParser:
                     # For each complete tool, split it into OpenAI-compatible delta chunks
                     for tool in parsed_tools:
                         # First chunk with the name
-                        outputs.append({
+                        yield {
                             "name": tool.get("name"),
                             "arguments": ""
-                        })
+                        }
                         # Second chunk with the arguments
-                        # Note: The arguments from parse() should be a dict
                         arguments_str = json.dumps(tool.get("arguments", {}), ensure_ascii=False)
-                        outputs.append({
-                            "name": None,
-                            "arguments": arguments_str
-                        })
+                        # Yield arguments chunk by chunk to simulate streaming
+                        # For simplicity, we yield the whole string. A more complex
+                        # implementation could yield smaller pieces.
+                        if arguments_str != '{}':
+                            yield {
+                                "name": None,
+                                "arguments": arguments_str
+                            }
 
                 # 3. Update buffer to what's left and continue loop
                 self.buffer = self.buffer[end_of_tool_close:]
@@ -114,12 +116,10 @@ class BaseToolParser:
         if start_idx != -1:
             # We have an incomplete tool call. Yield text before it.
             if start_idx > 0:
-                outputs.append(self.buffer[:start_idx])
+                yield self.buffer[:start_idx]
                 self.buffer = self.buffer[start_idx:]
         else:
             # No sign of a tool call, so it's all plain text.
             if self.buffer:
-                outputs.append(self.buffer)
+                yield self.buffer
                 self.buffer = ""
-                
-        return outputs if outputs else None
