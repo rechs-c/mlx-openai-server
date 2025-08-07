@@ -4,6 +4,7 @@ from openai_harmony import (
     StreamableParser,
     Role
 )    
+from typing import Tuple
 
 # Harmony Parsing Helper Functions
 class HarmonyParser:
