@@ -16,7 +16,6 @@ class HarmonyParser:
         self.end_tool_chunk = "<|call|>"
         self.tool_state = False
         self.end_stream = False
-        self.thinking_state = False
     
     def parse_streaming_content(self, text: str | None = None) -> Tuple[bool, dict | str | None]:
         if text == self.end_tool_chunk:
@@ -29,12 +28,10 @@ class HarmonyParser:
             channel = stream_text.current_channel
             content = stream_text.last_content_delta
             if channel == "analysis":
-                if self.thinking_state:
+                if content:
                     return self.end_stream, {
                         "reasoning_content": content
                     }
-                self.thinking_state = True
-                return self.end_stream, None
             elif channel == "commentary":
                 if self.tool_state:
                     return self.end_stream, {
@@ -50,8 +47,7 @@ class HarmonyParser:
                         "arguments": ""
                     }
                 }
-            else:
-                return self.end_stream, content
+            return self.end_stream, content
         return self.end_stream, None
 
     def parse_non_streaming_content(self, text: str) -> dict:
