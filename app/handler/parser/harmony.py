@@ -47,6 +47,7 @@ class HarmonyParser:
                 return self.end_stream, {
                     "tool_calls": {
                         "name": stream_text.current_recipient.replace("function.", ""),
+                        "arguments": ""
                     }
                 }
             else:
