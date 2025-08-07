@@ -1,0 +1,71 @@
+from openai_harmony import (
+    load_harmony_encoding,
+    HarmonyEncodingName,
+    StreamableParser,
+    Role
+)    
+
+# Harmony Parsing Helper Functions
+class HarmonyParser:
+    """Helper class for parsing GPT-OSS model responses using harmony encoding."""
+
+    def __init__(self):
+        self.enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+        self.parser = StreamableParser(self.enc, role=Role.ASSISTANT)
+        self.end_tool_chunk = "<|call|>"
+        self.tool_state = False
+        self.end_stream = False
+        self.thinking_state = False
+    
+    def parse_streaming_content(self, text: str | None = None) -> Tuple[bool, dict | str | None]:
+        if text == self.end_tool_chunk:
+            self.end_stream = True
+            return self.end_stream, None
+        if text:
+            text_token = self.enc.encode(text, allowed_special="all")
+            text_token = text_token[0]
+            stream_text = self.parser.process(text_token)
+            channel = stream_text.current_channel
+            content = stream_text.last_content_delta
+            if channel == "analysis":
+                if self.thinking_state:
+                    return self.end_stream, {
+                        "reasoning_content": content
+                    }
+                self.thinking_state = True
+                return self.end_stream, None
+            elif channel == "commentary":
+                if self.tool_state:
+                    return self.end_stream, {
+                        "tool_calls": {
+                            "name": None,
+                            "arguments": content.replace("functions.", "")
+                        }
+                    }
+                self.tool_state = True
+                return self.end_stream, {
+                    "tool_calls": {
+                        "name": stream_text.current_recipient.replace("function.", ""),
+                    }
+                }
+            else:
+                return self.end_stream, content
+        return self.end_stream, None
+
+    def parse_non_streaming_content(self, text: str) -> dict:
+        res = {}
+        if self.end_tool_chunk in text:
+            text = text.split(self.end_tool_chunk)[0]          
+        tokens = self.enc.encode(text, allowed_special="all")
+        parsed_messages = self.enc.parse_messages_from_completion_tokens(tokens, role=Role.ASSISTANT)
+        for message in parsed_messages:
+            if message.channel == "analysis":
+                res["reasoning_content"] = message.content[0].text
+            elif message.channel == "commentary":
+                res["tool_calls"] = {
+                    "name": message.recipient.replace("function.", ""),
+                    "arguments": message.content[0].text
+                }
+            else:
+                res["content"] = message.content[0].text
+        return res  
