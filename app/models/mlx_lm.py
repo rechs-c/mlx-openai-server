@@ -176,17 +176,16 @@ class MLX_LM:
         
         mx.random.seed(seed)
 
-        # Prepare input tokens
         input_tokens = self.tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             **chat_template_kwargs,
-        )
-        
+        )      
+
         sampler = make_sampler(
            **sampler_kwargs
         )
-        
+                
         if not stream:
             return generate(
                 self.model,

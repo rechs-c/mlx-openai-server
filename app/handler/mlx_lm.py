@@ -110,7 +110,7 @@ class MLXLMHandler:
                 harmony_parser = HarmonyParser()
                 for chunk in response_generator:
                     if chunk:
-                        end, chunk = harmony_parser.parse_streaming_content(chunk.text)
+                        end, chunk = harmony_parser.parse_stream(chunk.text)
                         if end:
                             break
                         if chunk:
@@ -173,7 +173,7 @@ class MLXLMHandler:
                 return parsed_response
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
-                parsed_response = harmony_parser.parse_non_streaming_content(response)
+                parsed_response = harmony_parser.parse(response)
                 return parsed_response
             
             return response
@@ -243,14 +243,21 @@ class MLXLMHandler:
             model_params = request_data.copy()
             model_params.pop("messages", None)
             model_params.pop("stream", None)
-            
+
+            # Reformat messages
+            refined_messages = []
+            for message in messages:
+                refined_messages.append({
+                    "role": message["role"],
+                    "content": message["content"]
+                })
+
             # Call the model
             response = self.model(
-                messages=messages,
+                messages=refined_messages,
                 stream=stream,
                 **model_params
-            )
-            
+            )            
             # Force garbage collection after model inference
             gc.collect()
             return response
