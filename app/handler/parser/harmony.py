@@ -17,10 +17,11 @@ class HarmonyParser:
         self.tool_state = False
         self.end_stream = False
     
-    def parse_streaming_content(self, text: str | None = None) -> Tuple[bool, dict | str | None]:
+    def parse_stream(self, text: str | None = None) -> Tuple[bool, dict | str | None]:   
         if text == self.end_tool_chunk:
             self.end_stream = True
             return self.end_stream, None
+
         if text:
             text_token = self.enc.encode(text, allowed_special="all")
             text_token = text_token[0]
@@ -35,23 +36,23 @@ class HarmonyParser:
             elif channel == "commentary":
                 if self.tool_state:
                     return self.end_stream, {
-                        "tool_calls": {
-                            "name": None,
-                            "arguments": content.replace("functions.", "")
-                        }
+                        "name": None,
+                        "arguments": content.replace("functions.", "")
                     }
                 self.tool_state = True
                 return self.end_stream, {
-                    "tool_calls": {
-                        "name": stream_text.current_recipient.replace("function.", ""),
-                        "arguments": ""
-                    }
+                    "name": stream_text.current_recipient.replace("function.", ""),
+                    "arguments": ""
                 }
             return self.end_stream, content
         return self.end_stream, None
 
-    def parse_non_streaming_content(self, text: str) -> dict:
-        res = {}
+    def parse(self, text: str) -> dict:
+        res = {
+            "reasoning_content": None,
+            "tool_calls": None,
+            "content": None
+        }
         if self.end_tool_chunk in text:
             text = text.split(self.end_tool_chunk)[0]          
         tokens = self.enc.encode(text, allowed_special="all")
@@ -60,10 +61,10 @@ class HarmonyParser:
             if message.channel == "analysis":
                 res["reasoning_content"] = message.content[0].text
             elif message.channel == "commentary":
-                res["tool_calls"] = {
+                res["tool_calls"] = [{
                     "name": message.recipient.replace("function.", ""),
                     "arguments": message.content[0].text
-                }
-            else:
+                }]
+            elif message.channel == "final":
                 res["content"] = message.content[0].text
         return res  
