@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from loguru import logger
 from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
-from app.handler.parser import get_parser
+from app.handler.parser import Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser
 from app.utils.errors import create_error_response
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
@@ -89,20 +89,30 @@ class MLXLMHandler:
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
-            tool_parser, thinking_parser = get_parser(self.model_type)
-            if enable_thinking and thinking_parser:
-                for chunk in response_generator:
-                    if chunk:
-                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
+            if self.model_type == "qwen3":
+                thinking_parser = Qwen3ThinkingParser()
+                if enable_thinking:
+                    for chunk in response_generator:
                         if chunk:
-                            yield chunk
-                        if is_finish:
-                            break
-
-            if tools and tool_parser:
+                            chunk, is_finish = thinking_parser.parse_stream(chunk.text)
+                            if chunk:
+                                yield chunk
+                            if is_finish:
+                                break
+                tool_parser = Qwen3ToolParser()            
+                if tools and tool_parser:
+                    for chunk in response_generator:
+                        if chunk:
+                            chunk = tool_parser.parse_stream(chunk.text)
+                            if chunk:
+                                yield chunk
+            elif self.model_type == "gpt_oss":
+                harmony_parser = HarmonyParser()
                 for chunk in response_generator:
                     if chunk:
-                        chunk = tool_parser.parse_stream(chunk.text)
+                        end, chunk = harmony_parser.parse_stream(chunk.text)
+                        if end:
+                            break
                         if chunk:
                             yield chunk
             else:
@@ -142,26 +152,31 @@ class MLXLMHandler:
             response = await self.request_queue.submit(request_id, request_data)
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
-            if not tools and not enable_thinking:
-                return response
-
-            tool_parser, thinking_parser = get_parser(self.model_type)
-            if not tool_parser and not thinking_parser:
-                return response
-            parsed_response = {
-                "reasoning_content": None,
-                "tool_calls": None,
-                "content": None
-            }
-            if enable_thinking and thinking_parser:
-                thinking_response, response = thinking_parser.parse(response)
-                parsed_response["reasoning_content"] = thinking_response
-            if tools and tool_parser:
-                tool_response, response = tool_parser.parse(response)
-                parsed_response["tool_calls"] = tool_response
-            parsed_response["content"] = response
+           
+            if self.model_type == "qwen3":
+                thinking_parser = Qwen3ThinkingParser()
+                tool_parser = Qwen3ToolParser()
+                parsed_response = {
+                    "reasoning_content": None,
+                    "tool_calls": None,
+                    "content": None
+                }
+                
+                if enable_thinking and thinking_parser:
+                    thinking_response, response = thinking_parser.parse(response)
+                    parsed_response["reasoning_content"] = thinking_response
+                if tools and tool_parser:
+                    tool_response, response = tool_parser.parse(response)
+                    parsed_response["tool_calls"] = tool_response
+                parsed_response["content"] = response
+                
+                return parsed_response
+            elif self.model_type == "gpt_oss":
+                harmony_parser = HarmonyParser()
+                parsed_response = harmony_parser.parse(response)
+                return parsed_response
             
-            return parsed_response
+            return response
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
@@ -228,14 +243,21 @@ class MLXLMHandler:
             model_params = request_data.copy()
             model_params.pop("messages", None)
             model_params.pop("stream", None)
-            
+
+            # Reformat messages
+            refined_messages = []
+            for message in messages:
+                refined_messages.append({
+                    "role": message["role"],
+                    "content": message["content"]
+                })
+
             # Call the model
             response = self.model(
-                messages=messages,
+                messages=refined_messages,
                 stream=stream,
                 **model_params
-            )
-            
+            )            
             # Force garbage collection after model inference
             gc.collect()
             return response
