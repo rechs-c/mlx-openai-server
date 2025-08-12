@@ -247,10 +247,7 @@ class MLXLMHandler:
             # Reformat messages
             refined_messages = []
             for message in messages:
-                refined_messages.append({
-                    "role": message["role"],
-                    "content": message["content"]
-                })
+                refined_messages.append({k: v for k, v in message.items() if v is not None})
 
             # Call the model
             response = self.model(
