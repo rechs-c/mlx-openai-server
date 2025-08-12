@@ -16,7 +16,7 @@ setup(
         "mlx-vlm==0.3.2",
         "mlx-lm==0.26.3",
         "mlx-embeddings==0.0.3",
-        "mflux==0.9.3",
+        "mflux==0.9.6",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",

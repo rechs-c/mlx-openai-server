@@ -1,5 +1,5 @@
 from PIL import Image
-from mflux import Flux1, Config
+from mflux.flux.flux import Flux1, Config
 
 class MLXFlux:
     """Base class for Flux models with common functionality."""
