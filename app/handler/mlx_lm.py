@@ -90,8 +90,8 @@ class MLXLMHandler:
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
             if self.model_type in ["qwen3", "qwen3_moe"]:
-                thinking_parser = Qwen3ThinkingParser()
                 if enable_thinking:
+                    thinking_parser = Qwen3ThinkingParser()
                     for chunk in response_generator:
                         if chunk:
                             chunk, is_finish = thinking_parser.parse_stream(chunk.text)
@@ -99,13 +99,17 @@ class MLXLMHandler:
                                 yield chunk
                             if is_finish:
                                 break
-                tool_parser = Qwen3ToolParser()            
-                if tools and tool_parser:
+                elif tools:
+                    tool_parser = Qwen3ToolParser()
                     for chunk in response_generator:
                         if chunk:
                             chunk = tool_parser.parse_stream(chunk.text)
                             if chunk:
                                 yield chunk
+                else:
+                    for chunk in response_generator:
+                        if chunk:
+                            yield chunk.text
             elif self.model_type == "glm4_moe":
                 tool_parser = Glm4MoeToolParser()
                 if tools and tool_parser:
