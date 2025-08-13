@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from loguru import logger
 from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
-from app.handler.parser import Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser
+from app.handler.parser import Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoeToolParser
 from app.utils.errors import create_error_response
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
@@ -106,6 +106,14 @@ class MLXLMHandler:
                             chunk = tool_parser.parse_stream(chunk.text)
                             if chunk:
                                 yield chunk
+            elif self.model_type == "glm4_moe":
+                tool_parser = Glm4MoeToolParser()
+                if tools and tool_parser:
+                    for chunk in response_generator:
+                        if chunk:
+                            parsed_chunk = tool_parser.parse_stream(chunk.text)
+                            if parsed_chunk:
+                                yield parsed_chunk
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
                 for chunk in response_generator:
@@ -170,6 +178,18 @@ class MLXLMHandler:
                     parsed_response["tool_calls"] = tool_response
                 parsed_response["content"] = response
                 
+                return parsed_response
+            elif self.model_type == "glm4_moe":
+                tool_parser = Glm4MoeToolParser()
+                parsed_response = {
+                    "reasoning_content": None,
+                    "tool_calls": None,
+                    "content": None
+                }
+                if tools and tool_parser:
+                    tool_response, response = tool_parser.parse(response)
+                    parsed_response["tool_calls"] = tool_response
+                parsed_response["content"] = response
                 return parsed_response
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
