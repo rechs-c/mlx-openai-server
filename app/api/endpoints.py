@@ -23,16 +23,12 @@ from app.utils.errors import create_error_response
 router = APIRouter()
 
 
-@router.post("/health")
-async def health(raw_request: Request):
+@router.get("/health")
+async def health():
     """
     Health check endpoint.
     """
-    try:
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return JSONResponse(content=create_error_response("Health check failed", "server_error", 500), status_code=500)
+    return {"status": "ok"}
 
 @router.get("/v1/queue/stats")
 async def queue_stats(raw_request: Request):
