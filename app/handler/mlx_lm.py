@@ -89,7 +89,7 @@ class MLXLMHandler:
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
-            if self.model_type == "qwen3":
+            if self.model_type in ["qwen3", "qwen3_moe"]:
                 thinking_parser = Qwen3ThinkingParser()
                 if enable_thinking:
                     for chunk in response_generator:
@@ -114,6 +114,10 @@ class MLXLMHandler:
                             parsed_chunk = tool_parser.parse_stream(chunk.text)
                             if parsed_chunk:
                                 yield parsed_chunk
+                else:
+                    for chunk in response_generator:
+                        if chunk:
+                            yield chunk.text
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
                 for chunk in response_generator:
@@ -161,7 +165,7 @@ class MLXLMHandler:
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
            
-            if self.model_type == "qwen3":
+            if self.model_type in ["qwen3", "qwen3_moe"]:
                 thinking_parser = Qwen3ThinkingParser()
                 tool_parser = Qwen3ToolParser()
                 parsed_response = {
