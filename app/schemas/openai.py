@@ -65,21 +65,22 @@ class ChatCompletionMessageToolCall(BaseModel):
     """
     Represents a tool call in a message.
     """
-    id: str = Field(..., description="The ID of the tool call.")
+    id: Optional[str] = Field(None, description="The ID of the tool call.")
     function: FunctionCall = Field(..., description="The function call details.")
     type: Literal["function"] = Field(..., description="The type of tool call, always 'function'.")
-    index: Optional[int] = Field(None, description="The index of the tool call, used in streaming.")
+    index: Optional[int] = Field(None, description="The index of the tool call.")
 
 class Message(BaseModel):
     """
     Represents a message in a chat completion.
     """
-    content: Union[str, List[MultimodalContentItem]] = Field(None, description="The content of the message, either text or a list of content items (vision, audio, or multimodal).")
+    content: Union[str, List[MultimodalContentItem], None] = Field(None, description="The content of the message, either text or a list of content items (vision, audio, or multimodal).")
     refusal: Optional[str] = Field(None, description="The refusal reason, if any.")
     role: Literal["system", "user", "assistant", "tool"] = Field(..., description="The role of the message sender.")
     function_call: Optional[FunctionCall] = Field(None, description="The function call, if any.")
     reasoning_content: Optional[str] = Field(None, description="The reasoning content, if any.")
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = Field(None, description="List of tool calls, if any.")
+    tool_call_id: Optional[str] = Field(None, description="The ID of the tool call, if any.")
 
 # Common request base for both streaming and non-streaming
 class ChatCompletionRequestBase(BaseModel):
@@ -170,6 +171,7 @@ class ChatTemplateKwargs(BaseModel):
     Represents the arguments for a chat template.
     """
     enable_thinking: bool = Field(False, description="Whether to enable thinking mode.")
+    reasoning_effot: str = Field("medium", description="The reasoning effort level.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):
