@@ -73,15 +73,21 @@ class Glm4MoeToolParser(BaseToolParser):
         
         if self.state == ParseState.NORMAL:
             start_index = self.buffer.find(self.tool_open)
-            if start_index != -1:
-                text_to_yield = self.buffer[:start_index]
-                self.buffer = self.buffer[start_index:]
-                self.state = ParseState.FOUND_PREFIX
-                if text_to_yield:
-                    return text_to_yield
-                else:
-                    # Continue to next state if no text to yield
-                    return self.parse_stream("")
+            
+            if start_index == -1:
+                # No tool call found, so it's all text.
+                # Return the whole buffer and clear it.
+                text_to_yield = self.buffer
+                self.buffer = ""
+                return text_to_yield if text_to_yield else None
+
+            # Tool call found. Yield text before it.
+            text_to_yield = self.buffer[:start_index]
+            self.buffer = self.buffer[start_index:]
+            self.state = ParseState.FOUND_PREFIX
+            if text_to_yield:
+                return text_to_yield
+            # If no text before, fall through to process the tool call.
 
         if self.state == ParseState.FOUND_PREFIX:
             end_index = self.buffer.find(self.tool_close)
@@ -93,6 +99,12 @@ class Glm4MoeToolParser(BaseToolParser):
                 self.state = ParseState.NORMAL
                 
                 if parsed_tools:
+                    # Yield the tool. The next call will handle remaining buffer.
                     return parsed_tools[0]
+
+        # After a tool is processed, the state is NORMAL.
+        # If there's anything left in the buffer, process it.
+        if self.state == ParseState.NORMAL and self.buffer:
+            return self.parse_stream("")
 
         return None
