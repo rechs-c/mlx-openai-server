@@ -37,11 +37,11 @@ class HarmonyParser:
                 if self.tool_state:
                     return self.end_stream, {
                         "name": None,
-                        "arguments": content.replace("functions.", "")
+                        "arguments": content
                     }
                 self.tool_state = True
                 return self.end_stream, {
-                    "name": stream_text.current_recipient.replace("function.", ""),
+                    "name": stream_text.current_recipient.replace("functions.", ""),
                     "arguments": ""
                 }
             return self.end_stream, content
