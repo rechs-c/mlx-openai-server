@@ -12,7 +12,7 @@ from loguru import logger
 
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler
-from app.handler.mlfux import MLXFluxHandler
+from app.handler.mflux import MLXFluxHandler
 from app.handler.mlx_embeddings import MLXEmbeddingsHandler 
 from app.api.endpoints import router
 from app.version import __version__
@@ -37,39 +37,27 @@ logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
-    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm and multimodal model types)")
-    parser.add_argument("--model-name", type=str, choices=["dev", "schnell"], help="Name of the model (required for image-generation model type).")
+    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model.")
     parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "embeddings"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
+    parser.add_argument("--quantize", type=int, default=8, help="Quantization level for the model. Only used for Flux models.")
+    parser.add_argument("--config-name", type=str, default="flux-schnell", choices=["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"], help="Config name of the model. Only used for Flux models.")
+    parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Only used for Flux models. Multiple paths should be separated by commas.")
+    parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Only used for Flux models. Multiple scales should be separated by commas.")
     parser.add_argument("--disable-auto-resize", action="store_true", help="Disable automatic model resizing. Only work for Vision Language Models.")
     
     args = parser.parse_args()
-    
-    # Validate model arguments
-    if args.model_type == "image-generation":
-        if not args.model_name:
-            parser.error("--model-name is required for image-generation model type. Available options: 'dev', 'schnell'")
-        if args.model_path:
-            parser.error("--model-path cannot be used with image-generation model type. Use --model-name instead.")
-    else:
-        if not args.model_path:
-            parser.error("--model-path is required for lm, multimodal, and embeddings model types")
-        if args.model_name:
-            parser.error("--model-name can only be used with image-generation model type. Use --model-path instead.")
     
     return args
 
 
 def get_model_identifier(args):
     """Get the appropriate model identifier based on model type."""
-    if args.model_type == "image-generation":
-        return args.model_name
-    else:
-        return args.model_path
+    return args.model_path
 
 def create_lifespan(config_args):
     """Factory function to create a lifespan context manager with access to config args."""
@@ -91,7 +79,11 @@ def create_lifespan(config_args):
             elif config_args.model_type == "image-generation":
                 handler = MLXFluxHandler(
                     model_path=model_identifier,
-                    max_concurrency=config_args.max_concurrency
+                    max_concurrency=config_args.max_concurrency,
+                    quantize=getattr(config_args, 'quantize', 8),
+                    config_name=getattr(config_args, 'config_name', 'flux-schnell'),
+                    lora_paths=getattr(config_args, 'lora_paths', None),
+                    lora_scales=getattr(config_args, 'lora_scales', None)
                 )
             elif config_args.model_type == "embeddings":
                 handler = MLXEmbeddingsHandler(
