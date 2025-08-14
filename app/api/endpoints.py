@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
 from app.handler.mlx_lm import MLXLMHandler
-from app.handler.mlfux import MLXFluxHandler
+from app.handler.mflux import MLXFluxHandler
 from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
                                 ChatCompletionRequest, ChatCompletionResponse,
