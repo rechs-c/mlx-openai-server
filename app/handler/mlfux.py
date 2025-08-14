@@ -2,16 +2,16 @@ import asyncio
 import base64
 import time
 import uuid
+import gc
+from io import BytesIO
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
-from io import BytesIO
-import gc
 
 from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
-from app.models.mflux import MLXFlux
+from app.models.mflux import FluxModel
 from app.core.queue import RequestQueue
 from app.utils.errors import create_error_response
 from app.schemas.openai import ImageGenerationRequest, ImageGenerationResponse, ImageData
@@ -23,7 +23,9 @@ class MLXFluxHandler:
     Provides request queuing, metrics tracking, and robust error handling.
     """
 
-    def __init__(self, model_path: str, max_concurrency: int = 1, quantize: int = 8):
+    def __init__(self, model_path: str, max_concurrency: int = 1, quantize: int = 8, 
+                 config_name: str = "flux-schnell", lora_paths: Optional[List[str]] = None, 
+                 lora_scales: Optional[List[float]] = None):
         """
         Initialize the handler with the specified model path.
         
@@ -31,16 +33,31 @@ class MLXFluxHandler:
             model_path (str): Path to the model directory or model name for Flux.
             max_concurrency (int): Maximum number of concurrent model inference tasks.
             quantize (int): Quantization level for the model.
+            architecture (str): Model architecture (flux-schnell, flux-dev, etc.).
+            lora_paths (List[str]): List of LoRA adapter paths.
+            lora_scales (List[float]): List of LoRA scales.
         """
         self.model_path = model_path
         self.quantize = quantize
-        self.model = MLXFlux(model_name=model_path, quantize=quantize)
+        self.config_name = config_name
+        self.lora_paths = lora_paths
+        self.lora_scales = lora_scales
+        
+        self.model = FluxModel(
+            model_path=model_path, 
+            quantize=quantize,
+            config_name=config_name,
+            lora_paths=lora_paths,
+            lora_scales=lora_scales
+        )
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
         # Initialize request queue for image generation tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
 
-        logger.info(f"Initialized MLXFluxHandler with model path: {model_path}")
+        logger.info(f"Initialized MLXFluxHandler with model path: {model_path}, architecture: {architecture}")
+        if lora_paths:
+            logger.info(f"Using LoRA adapters: {lora_paths} with scales: {lora_scales}")
     
     def get_models(self) -> List[Dict[str, Any]]:
         """
