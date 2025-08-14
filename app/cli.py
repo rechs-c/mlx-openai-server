@@ -9,9 +9,8 @@ from app.main import setup_server
 
 class Config:
     """Configuration container for server parameters."""
-    def __init__(self, model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False):
+    def __init__(self, model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, quantize=8, config_name=None, lora_paths=None, lora_scales=None):
         self.model_path = model_path
-        self.model_name = model_name
         self.model_type = model_type
         self.port = port
         self.host = host
@@ -19,14 +18,26 @@ class Config:
         self.queue_timeout = queue_timeout
         self.queue_size = queue_size
         self.disable_auto_resize = disable_auto_resize
+        self.quantize = quantize
+        self.config_name = config_name
+        
+        # Process comma-separated LoRA paths and scales
+        if lora_paths:
+            self.lora_paths = [path.strip() for path in lora_paths.split(',') if path.strip()]
+        else:
+            self.lora_paths = None
+            
+        if lora_scales:
+            self.lora_scales = [float(scale.strip()) for scale in lora_scales.split(',') if scale.strip()]
+        else:
+            self.lora_scales = None
+
 
     @property
     def model_identifier(self):
         """Get the appropriate model identifier based on model type."""
-        if self.model_type == "image-generation":
-            return self.model_name
-        else:
-            return self.model_path
+        # For Flux models, we always use model_path (local directory path)
+        return self.model_path
 
 
 # Configure Loguru once at module level
@@ -62,18 +73,21 @@ def cli():
 
 
 @lru_cache(maxsize=1)
-def get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
+def get_server_config(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
     """Cache and return server configuration to avoid redundant processing."""
     return Config(
         model_path=model_path,
-        model_name=model_name,
         model_type=model_type,
         port=port,
         host=host,
         max_concurrency=max_concurrency,
         queue_timeout=queue_timeout,
         queue_size=queue_size,
-        disable_auto_resize=disable_auto_resize
+        disable_auto_resize=disable_auto_resize,
+        quantize=quantize,
+        config_name=config_name,
+        lora_paths=lora_paths,
+        lora_scales=lora_scales
     )
 
 
@@ -82,44 +96,28 @@ def print_startup_banner(args):
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     logger.info(f"✨ MLX Server v{__version__} Starting ✨")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    if args.model_type == "image-generation":
-        logger.info(f"🔮 Model Name: {args.model_name}")
-    else:
-        logger.info(f"🔮 Model Path: {args.model_path}")
+    logger.info(f"🔮 Model Path: {args.model_path}")
     logger.info(f"🔮 Model Type: {args.model_type}")
     logger.info(f"🌐 Host: {args.host}")
     logger.info(f"🔌 Port: {args.port}")
     logger.info(f"⚡ Max Concurrency: {args.max_concurrency}")
     logger.info(f"⏱️ Queue Timeout: {args.queue_timeout} seconds")
     logger.info(f"📊 Queue Size: {args.queue_size}")
+    if args.model_type == "image-generation":
+        logger.info(f"🔮 Quantize: {args.quantize}")
+        logger.info(f"🔮 Config Name: {args.config_name}")
+        if args.lora_paths:
+            logger.info(f"🔮 LoRA Paths: {args.lora_paths}")
+        if args.lora_scales:
+            logger.info(f"🔮 LoRA Scales: {args.lora_scales}")
     if hasattr(args, 'disable_auto_resize') and args.disable_auto_resize and args.model_type == "multimodal":
         logger.info(f"🖼️ Auto-resize: Disabled")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-
-def validate_model_args(model_path, model_name, model_type):
-    """Validate that the correct model argument is provided based on model type."""
-    if model_type == "image-generation":
-        if not model_name:
-            raise click.ClickException("--model-name is required for image-generation model type. Available options: 'dev', 'schnell'")
-        if model_path:
-            raise click.ClickException("--model-path cannot be used with image-generation model type. Use --model-name instead.")
-    else:
-        if not model_path:
-            raise click.ClickException("--model-path is required for lm, multimodal, and embeddings model types")
-        if model_name:
-            raise click.ClickException("--model-name can only be used with image-generation model type. Use --model-path instead.")
-
-
 @cli.command()
 @click.option(
     "--model-path", 
-    help="Path to the model (required for lm, multimodal, and embeddings model types)"
-)
-@click.option(
-    "--model-name",
-    type=click.Choice(["dev", "schnell"]),
-    help="Name of the model (required for image-generation model type). Available options: 'dev', 'schnell'"
+    help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model."
 )
 @click.option(
     "--model-type",
@@ -157,18 +155,46 @@ def validate_model_args(model_path, model_name, model_type):
     help="Maximum queue size for pending requests"
 )
 @click.option(
+    "--quantize",
+    default=8,
+    type=int,
+    help="Quantization level for the model. Only used for Flux models."
+)
+@click.option(
+    "--config-name",
+    default="flux-schnell",
+    type=click.Choice(["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"]),
+    help="Config name of the model. Only used for Flux models."
+)
+@click.option(
+    "--lora-paths",
+    default=None,
+    type=str,
+    help="Path to the LoRA file(s). Only used for Flux models. Multiple paths should be separated by commas."
+)
+@click.option(
+    "--lora-scales",
+    default=None,
+    type=str,
+    help="Scale factor for the LoRA file(s). Only used for Flux models. Multiple scales should be separated by commas."
+)
+@click.option(
     "--disable-auto-resize",
     is_flag=True,
     help="Disable automatic model resizing. Only work for Vision Language Models."
 )
-def launch(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize):
+def launch(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
     """Launch the MLX server with the specified model."""
     try:
-        # Validate model arguments
-        validate_model_args(model_path, model_name, model_type)
+        # Validate that config name is only used with image-generation model type
+        if config_name and model_type != "image-generation":
+            logger.warning(f"Config name parameter '{config_name}' provided but model type is '{model_type}'. Config name is only used with image-generation models.")
+        elif model_type == "image-generation" and not config_name:
+            logger.warning("Model type is 'image-generation' but no config name specified. Using default 'flux-schnell'.")
+            config_name = "flux-schnell"
         
         # Get optimized configuration
-        args = get_server_config(model_path, model_name, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize)
+        args = get_server_config(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)
         
         # Display startup information
         print_startup_banner(args)
