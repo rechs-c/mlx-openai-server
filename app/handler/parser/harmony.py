@@ -37,7 +37,7 @@ class HarmonyParser:
                 if self.tool_state:
                     return self.end_stream, {
                         "name": None,
-                        "arguments": content.replace("functions.", "")
+                        "arguments": content
                     }
                 self.tool_state = True
                 return self.end_stream, {
