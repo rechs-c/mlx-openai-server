@@ -33,7 +33,7 @@ class MLXFluxHandler:
             model_path (str): Path to the model directory or model name for Flux.
             max_concurrency (int): Maximum number of concurrent model inference tasks.
             quantize (int): Quantization level for the model.
-            architecture (str): Model architecture (flux-schnell, flux-dev, etc.).
+            config_name (str): Model config name (flux-schnell, flux-dev, etc.).
             lora_paths (List[str]): List of LoRA adapter paths.
             lora_scales (List[float]): List of LoRA scales.
         """
@@ -55,7 +55,7 @@ class MLXFluxHandler:
         # Initialize request queue for image generation tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
 
-        logger.info(f"Initialized MLXFluxHandler with model path: {model_path}, architecture: {architecture}")
+        logger.info(f"Initialized MLXFluxHandler with model path: {model_path}, config name: {config_name}")
         if lora_paths:
             logger.info(f"Using LoRA adapters: {lora_paths} with scales: {lora_scales}")
     
