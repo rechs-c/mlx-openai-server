@@ -62,7 +62,7 @@ class HarmonyParser:
                 res["reasoning_content"] = message.content[0].text
             elif message.channel == "commentary":
                 res["tool_calls"] = [{
-                    "name": message.recipient.replace("function.", ""),
+                    "name": message.recipient.replace("functions.", ""),
                     "arguments": message.content[0].text
                 }]
             elif message.channel == "final":
