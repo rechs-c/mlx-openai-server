@@ -310,8 +310,8 @@ class MLXLMHandler:
             tool_choice = request_dict.pop("tool_choice", None)
             
             if tools:
-                if tool_choice != "auto":
-                    raise HTTPException(status_code=400, detail=create_error_response("Tool choice must be 'auto' when tools are provided.", "bad_request", HTTPStatus.BAD_REQUEST))
+                if tool_choice:
+                    logger.warning("Tool choice has not supported yet, will be ignored.")
                 request_dict["chat_template_kwargs"]["tools"] = tools
 
             if request_dict.get("response_format", None):
