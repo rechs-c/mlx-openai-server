@@ -1,5 +1,6 @@
 import gc
 import time
+import json
 import uuid
 import asyncio
 from http import HTTPStatus
@@ -255,7 +256,7 @@ class MLXLMHandler:
         Returns:
             str: The model's response.
         """
-        logger.debug(f"Processing request data. Type: {type(request_data)}, Data: {request_data}")
+        # logger.debug(f"Processing request data. Type: {type(request_data)}, Data: {request_data}")
         try:
             # Check if the request is for embeddings
             if request_data.get("type") == "embeddings":
@@ -334,44 +335,59 @@ class MLXLMHandler:
             Tuple containing the formatted chat messages and model parameters.
         """
         try:
-            request_dict = request.model_dump()
+            request_dict = request.model_dump(exclude_none=True)
+            messages = request_dict.pop("messages", [])
             tools = request_dict.pop("tools", None)
             tool_choice = request_dict.pop("tool_choice", None)
             
             if tools:
                 if tool_choice:
                     logger.warning("Tool choice has not supported yet, will be ignored.")
+                if "chat_template_kwargs" not in request_dict:
+                    request_dict["chat_template_kwargs"] = {}
                 request_dict["chat_template_kwargs"]["tools"] = tools
 
-            if request_dict.get("response_format", None):
+            if request_dict.get("response_format"):
                 response_format = request_dict.pop("response_format", None)
-                if response_format.get("type") == "json_schema":
-                    request_dict["schema"] = response_format.get("json_schema", None).get("schema", None)
+                if response_format and response_format.get("type") == "json_schema":
+                    json_schema = response_format.get("json_schema", {})
+                    request_dict["schema"] = json_schema.get("schema")
             
-            # Format chat messages
-            chat_messages = []
-            for message in request.messages:
-                # Handle content that might be a list of VisionContentItem
-                if isinstance(message.content, list):
+            # Sanitize messages for models that don't fully support tool calls in templates
+            sanitized_messages = []
+            for msg in messages:
+                # Handle multimodal content first
+                content = msg.get("content")
+                if isinstance(content, list):
                     processed_content = ""
-                    for item in message.content:
-                        if item.type == "text" and item.text:
-                            processed_content += item.text
-                        # Optionally handle image_url if needed, but for text-only model, we might ignore or log it
-                        elif item.type == "image_url":
-                            logger.warning(f"Ignoring image_url content for text-only model: {item.image_url.url}")
-                    chat_messages.append({
-                        "role": message.role,
-                        "content": processed_content
-                    })
+                    for item in content:
+                        if item.get("type") == "text" and item.get("text"):
+                            processed_content += item["text"]
+                        elif item.get("type") == "image_url":
+                            logger.warning("Ignoring image_url content for text-only model")
+                    msg["content"] = processed_content
+
+                # Textualize tool calls and results
+                if msg.get("role") == "assistant" and "tool_calls" in msg:
+                    tool_calls = msg.pop("tool_calls")
+                    tool_calls_text = "\n".join(
+                        f"Tool call: {tc.get('function', {}).get('name')}({tc.get('function', {}).get('arguments')})"
+                        for tc in tool_calls
+                    )
+                    existing_content = msg.get("content") or ""
+                    msg["content"] = f"{existing_content}\n{tool_calls_text}".strip()
+                    sanitized_messages.append(msg)
+                elif msg.get("role") == "tool":
+                    # Convert tool result to a user message
+                    user_msg_content = (
+                        f"Tool call result for `{msg.get('tool_call_id')}`:\n"
+                        f"```\n{msg.get('content')}\n```"
+                    )
+                    sanitized_messages.append({"role": "user", "content": user_msg_content})
                 else:
-                    # Content is already a string
-                    chat_messages.append({
-                        "role": message.role,
-                        "content": message.content
-                    })
+                    sanitized_messages.append(msg)
             
-            return chat_messages, request_dict
+            return sanitized_messages, request_dict
         
         except Exception as e:
             logger.error(f"Failed to prepare text request: {str(e)}")

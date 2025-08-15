@@ -212,13 +212,13 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
             model=model,
             choices=[StreamingChoice(index=0, delta=Delta(role="assistant"), finish_reason=None)]
         )
-        logger.debug(f"Yielding first chunk: {first_chunk.model_dump_json()}")
+        # logger.debug(f"Yielding first chunk: {first_chunk.model_dump_json()}")
         yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
         async for chunk in generator:
             if chunk:
                 if isinstance(chunk, str):
                     response_chunk = create_response_chunk(chunk, model, chat_id=chat_index, created_time=created_time)
-                    logger.debug(f"Yielding chunk: {response_chunk.model_dump_json()}")
+                    # logger.debug(f"Yielding chunk: {response_chunk.model_dump_json()}")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
                 else:
                     finish_reason = "tool_calls"
@@ -229,7 +229,7 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
                         **chunk
                     }
                     response_chunk = create_response_chunk(payload, model, chat_id=chat_index, created_time=created_time)
-                    logger.debug(f"Yielding tool call chunk: {response_chunk.model_dump_json()}")
+                    # logger.debug(f"Yielding tool call chunk: {response_chunk.model_dump_json()}")
                     yield f"data: {json.dumps(response_chunk.model_dump())}\n\n"
     except Exception as e:
         logger.error(f"Error in stream wrapper: {str(e)}")
@@ -239,9 +239,9 @@ async def handle_stream_response(generator: AsyncGenerator, model: str):
     finally:
         # Final chunk: finish_reason and [DONE], as per OpenAI
         final_chunk = create_response_chunk('', model, is_final=True, finish_reason=finish_reason, chat_id=chat_index)
-        logger.debug(f"Yielding final chunk: {final_chunk.model_dump_json()}")
+        # logger.debug(f"Yielding final chunk: {final_chunk.model_dump_json()}")
         yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
-        logger.debug("Yielding [DONE]")
+        # logger.debug("Yielding [DONE]")
         yield "data: [DONE]\n\n"
 
 async def process_multimodal_request(handler, request: ChatCompletionRequest):
