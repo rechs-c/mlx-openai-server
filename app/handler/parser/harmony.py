@@ -146,7 +146,7 @@ class HarmonyParser:
             logger.error(f"Error in parse_stream: {e}")
             return self.end_stream, None
     
-    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any], str]]:
         """
         Build the appropriate response based on the current channel.
         
@@ -184,10 +184,7 @@ class HarmonyParser:
             elif current_channel == ChannelType.FINAL.value:
                 contents = content_data.get('contents', [])
                 if contents:
-                    return self.end_stream, {
-                        "content": "".join(contents)
-                    }
-                    
+                    return self.end_stream, "".join(contents)
         except Exception as e:
             logger.error(f"Error building response for channel {current_channel}: {e}")
             
