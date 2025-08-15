@@ -4,70 +4,323 @@ from openai_harmony import (
     StreamableParser,
     Role
 )    
-from typing import Tuple
+from typing import Tuple, Dict, List, Optional, Any
+import logging
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+class ChannelType(Enum):
+    """Enumeration of harmony channel types."""
+    ANALYSIS = "analysis"
+    COMMENTARY = "commentary" 
+    FINAL = "final"
+
+class ParsingState(Enum):
+    """Enumeration of parsing states."""
+    IDLE = "idle"
+    PROCESSING_TOKENS = "processing_tokens"
+    TOOL_PARSING = "tool_parsing"
+    STREAM_ENDED = "stream_ended"
 
 # Harmony Parsing Helper Functions
 class HarmonyParser:
-    """Helper class for parsing GPT-OSS model responses using harmony encoding."""
+    """
+    Enhanced helper class for parsing GPT-OSS model responses using harmony encoding.
+    
+    This parser handles streaming and non-streaming responses with proper state management,
+    error handling, and support for different harmony channels (analysis, commentary, final).
+    """
 
     def __init__(self):
-        self.enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
-        self.parser = StreamableParser(self.enc, role=Role.ASSISTANT)
+        """Initialize the harmony parser with encoding and state management."""
+        try:
+            self.enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+            self.parser = StreamableParser(self.enc, role=Role.ASSISTANT)
+        except Exception as e:
+            logger.error(f"Failed to initialize harmony encoding: {e}")
+            raise
+            
+        # Configuration
         self.end_tool_chunk = "<|call|>"
+        
+        # State management
+        self._reset_state()
+        
+    def _reset_state(self) -> None:
+        """Reset the parser state to initial values."""
         self.tool_state = False
         self.end_stream = False
+        self.parsing_state = ParsingState.IDLE
+        self._accumulated_content = {
+            ChannelType.ANALYSIS.value: [],
+            ChannelType.COMMENTARY.value: [],
+            ChannelType.FINAL.value: []
+        }
+        self._current_function_name = None
+        self._function_arguments = []
     
-    def parse_stream(self, text: str | None = None) -> Tuple[bool, dict | str | None]:   
+    def parse_stream(self, text: Optional[str] = None) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """
+        Parse streaming text input and return parsing state and extracted content.
+        
+        Args:
+            text: The text chunk to parse, or None for empty chunks
+            
+        Returns:
+            Tuple of (end_stream_flag, parsed_content_dict)
+            
+        Raises:
+            Exception: If encoding or parsing fails
+        """
+        # Handle end of stream marker
         if text == self.end_tool_chunk:
+            logger.debug("End tool chunk detected, marking stream as ended")
             self.end_stream = True
+            self.parsing_state = ParsingState.STREAM_ENDED
             return self.end_stream, None
-
-        if text:
+            
+        # Handle empty or None text
+        if not text:
+            return self.end_stream, None
+            
+        try:
+            self.parsing_state = ParsingState.PROCESSING_TOKENS
             text_tokens = self.enc.encode(text, allowed_special="all")
+            
+            # Initialize local variables for this chunk
+            contents: List[str] = []
+            function_name: Optional[str] = None
+            function_arguments: List[str] = []
+            reasoning_content: List[str] = []
+            current_channel: Optional[str] = None
+            
+            # Process each token
             for text_token in text_tokens:
-                stream_text = self.parser.process(text_token)
-                channel = stream_text.current_channel
-                content = stream_text.last_content_delta
-
-                if channel == "analysis":
-                    if content:
-                        return self.end_stream, {
-                            "reasoning_content": content
-                        }
-                elif channel == "commentary":
-                    if self.tool_state:
-                        return self.end_stream, {
-                            "name": None,
-                            "arguments": content
-                        }
-                    self.tool_state = True
+                try:
+                    stream_text = self.parser.process(text_token)
+                    current_channel = stream_text.current_channel
+                    content = stream_text.last_content_delta
+                    
+                    if not content:
+                        continue
+                        
+                    # Handle different channels
+                    if current_channel == ChannelType.ANALYSIS.value:
+                        reasoning_content.append(content)
+                        self._accumulated_content[ChannelType.ANALYSIS.value].append(content)
+                        
+                    elif current_channel == ChannelType.COMMENTARY.value:
+                        self.parsing_state = ParsingState.TOOL_PARSING
+                        
+                        if self.tool_state:
+                            # Already parsing function arguments
+                            function_arguments.append(content)
+                            self._function_arguments.append(content)
+                        else:
+                            # Start of new function call
+                            self.tool_state = True
+                            if hasattr(stream_text, 'current_recipient') and stream_text.current_recipient:
+                                function_name = stream_text.current_recipient.replace("functions.", "")
+                                self._current_function_name = function_name
+                            function_arguments = [""]  # Initialize with empty string
+                            self._function_arguments = [""]
+                            
+                    elif current_channel == ChannelType.FINAL.value:
+                        contents.append(content)
+                        self._accumulated_content[ChannelType.FINAL.value].append(content)
+                        
+                except Exception as token_error:
+                    logger.warning(f"Error processing token {text_token}: {token_error}")
+                    continue
+            
+            # Return appropriate response based on current channel
+            return self._build_response(current_channel, {
+                'reasoning_content': reasoning_content,
+                'function_name': function_name,
+                'function_arguments': function_arguments,
+                'contents': contents
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in parse_stream: {e}")
+            return self.end_stream, None
+    
+    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """
+        Build the appropriate response based on the current channel.
+        
+        Args:
+            current_channel: The current harmony channel being processed
+            content_data: Dictionary containing extracted content from different sources
+            
+        Returns:
+            Tuple of (end_stream_flag, response_dict)
+        """
+        if not current_channel:
+            return self.end_stream, None
+            
+        try:
+            if current_channel == ChannelType.ANALYSIS.value:
+                reasoning_content = content_data.get('reasoning_content', [])
+                if reasoning_content:
                     return self.end_stream, {
-                        "name": stream_text.current_recipient.replace("functions.", ""),
-                        "arguments": ""
+                        "reasoning_content": "".join(reasoning_content)
                     }
-                if content:
-                    return self.end_stream, content
-
+                    
+            elif current_channel == ChannelType.COMMENTARY.value:
+                function_name = content_data.get('function_name')
+                function_arguments = content_data.get('function_arguments', [])
+                
+                response = {}
+                if function_name:
+                    response["name"] = function_name
+                if function_arguments:
+                    response["arguments"] = "".join(function_arguments)
+                
+                if response:
+                    return self.end_stream, response
+                    
+            elif current_channel == ChannelType.FINAL.value:
+                contents = content_data.get('contents', [])
+                if contents:
+                    return self.end_stream, {
+                        "content": "".join(contents)
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Error building response for channel {current_channel}: {e}")
+            
         return self.end_stream, None
+    
+    def reset(self) -> None:
+        """Reset the parser to initial state for reuse."""
+        logger.debug("Resetting harmony parser state")
+        self._reset_state()
+    
+    def get_accumulated_content(self, channel: Optional[str] = None) -> Dict[str, str]:
+        """
+        Get accumulated content for all channels or a specific channel.
+        
+        Args:
+            channel: Optional specific channel to retrieve content for
+            
+        Returns:
+            Dictionary of channel content
+        """
+        if channel and channel in self._accumulated_content:
+            return {channel: "".join(self._accumulated_content[channel])}
+        
+        return {
+            ch: "".join(content) for ch, content in self._accumulated_content.items() 
+            if content
+        }
 
-    def parse(self, text: str) -> dict:
-        res = {
+    def parse(self, text: str) -> Dict[str, Any]:
+        """
+        Parse complete text response and extract structured content.
+        
+        This method processes the entire text at once (non-streaming) and extracts
+        reasoning content, tool calls, and final content based on harmony channels.
+        
+        Args:
+            text: The complete text response to parse
+            
+        Returns:
+            Dictionary containing parsed content with keys:
+            - reasoning_content: Analysis/thinking content
+            - tool_calls: List of tool call objects
+            - content: Final response content
+            
+        Raises:
+            Exception: If encoding or parsing fails
+        """
+        # Initialize result structure
+        result = {
             "reasoning_content": None,
             "tool_calls": None,
             "content": None
         }
-        if self.end_tool_chunk in text:
-            text = text.split(self.end_tool_chunk)[0]          
-        tokens = self.enc.encode(text, allowed_special="all")
-        parsed_messages = self.enc.parse_messages_from_completion_tokens(tokens, role=Role.ASSISTANT)
-        for message in parsed_messages:
-            if message.channel == "analysis":
-                res["reasoning_content"] = message.content[0].text
-            elif message.channel == "commentary":
-                res["tool_calls"] = [{
-                    "name": message.recipient.replace("functions.", ""),
-                    "arguments": message.content[0].text
-                }]
-            elif message.channel == "final":
-                res["content"] = message.content[0].text
-        return res  
+        
+        if not text:
+            logger.warning("Empty text provided to parse method")
+            return result
+            
+        try:
+            # Remove end tool chunk if present
+            clean_text = text
+            if self.end_tool_chunk in text:
+                clean_text = text.split(self.end_tool_chunk)[0]
+                logger.debug(f"Removed end tool chunk, processing {len(clean_text)} characters")
+            
+            # Encode and parse messages
+            tokens = self.enc.encode(clean_text, allowed_special="all")
+            parsed_messages = self.enc.parse_messages_from_completion_tokens(tokens, role=Role.ASSISTANT)
+            
+            # Process each parsed message
+            for message in parsed_messages:
+                try:
+                    if not hasattr(message, 'channel') or not hasattr(message, 'content'):
+                        logger.warning(f"Invalid message structure: {message}")
+                        continue
+                        
+                    if message.channel == ChannelType.ANALYSIS.value:
+                        if message.content and len(message.content) > 0:
+                            result["reasoning_content"] = message.content[0].text
+                            logger.debug("Extracted reasoning content")
+                            
+                    elif message.channel == ChannelType.COMMENTARY.value:
+                        if (hasattr(message, 'recipient') and message.recipient and 
+                            message.content and len(message.content) > 0):
+                            
+                            tool_call = {
+                                "name": message.recipient.replace("functions.", ""),
+                                "arguments": message.content[0].text
+                            }
+                            result["tool_calls"] = [tool_call]
+                            logger.debug(f"Extracted tool call: {tool_call['name']}")
+                            
+                    elif message.channel == ChannelType.FINAL.value:
+                        if message.content and len(message.content) > 0:
+                            result["content"] = message.content[0].text
+                            logger.debug("Extracted final content")
+                            
+                except Exception as msg_error:
+                    logger.warning(f"Error processing message: {msg_error}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error in parse method: {e}")
+            # Return partial results if available, don't raise
+            
+        return result
+    
+    def is_stream_ended(self) -> bool:
+        """Check if the stream has ended."""
+        return self.end_stream
+    
+    def get_parsing_state(self) -> ParsingState:
+        """Get the current parsing state."""
+        return self.parsing_state
+    
+    def is_tool_parsing_active(self) -> bool:
+        """Check if currently parsing tool calls."""
+        return self.tool_state
+    
+    def get_current_function_info(self) -> Dict[str, Optional[str]]:
+        """
+        Get information about the currently parsed function.
+        
+        Returns:
+            Dictionary with function name and accumulated arguments
+        """
+        return {
+            "name": self._current_function_name,
+            "arguments": "".join(self._function_arguments) if self._function_arguments else None
+        }
+    
+    def __repr__(self) -> str:
+        """String representation of the parser state."""
+        return (f"HarmonyParser(state={self.parsing_state.value}, "
+                f"tool_state={self.tool_state}, "
+                f"stream_ended={self.end_stream})")  
