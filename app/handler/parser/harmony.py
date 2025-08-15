@@ -23,28 +23,31 @@ class HarmonyParser:
             return self.end_stream, None
 
         if text:
-            text_token = self.enc.encode(text, allowed_special="all")
-            text_token = text_token[0]
-            stream_text = self.parser.process(text_token)
-            channel = stream_text.current_channel
-            content = stream_text.last_content_delta
-            if channel == "analysis":
+            text_tokens = self.enc.encode(text, allowed_special="all")
+            for text_token in text_tokens:
+                stream_text = self.parser.process(text_token)
+                channel = stream_text.current_channel
+                content = stream_text.last_content_delta
+
+                if channel == "analysis":
+                    if content:
+                        return self.end_stream, {
+                            "reasoning_content": content
+                        }
+                elif channel == "commentary":
+                    if self.tool_state:
+                        return self.end_stream, {
+                            "name": None,
+                            "arguments": content
+                        }
+                    self.tool_state = True
+                    return self.end_stream, {
+                        "name": stream_text.current_recipient.replace("functions.", ""),
+                        "arguments": ""
+                    }
                 if content:
-                    return self.end_stream, {
-                        "reasoning_content": content
-                    }
-            elif channel == "commentary":
-                if self.tool_state:
-                    return self.end_stream, {
-                        "name": None,
-                        "arguments": content
-                    }
-                self.tool_state = True
-                return self.end_stream, {
-                    "name": stream_text.current_recipient.replace("functions.", ""),
-                    "arguments": ""
-                }
-            return self.end_stream, content
+                    return self.end_stream, content
+
         return self.end_stream, None
 
     def parse(self, text: str) -> dict:
