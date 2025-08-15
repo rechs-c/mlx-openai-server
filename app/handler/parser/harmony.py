@@ -4,7 +4,7 @@ from openai_harmony import (
     StreamableParser,
     Role
 )    
-from typing import Tuple, Dict, List, Optional, Any
+from typing import Tuple, Dict, List, Optional, Any, Union
 import logging
 from enum import Enum
 
@@ -146,7 +146,7 @@ class HarmonyParser:
             logger.error(f"Error in parse_stream: {e}")
             return self.end_stream, None
     
-    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any], str]]:
+    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Union[Dict[str, Any], str]]]:
         """
         Build the appropriate response based on the current channel.
         
