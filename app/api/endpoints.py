@@ -17,7 +17,8 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChoiceDeltaToolCall, Delta, Embedding,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
-                                StreamingChoice, ImageGenerationRequest)
+                                StreamingChoice, ImageGenerationRequest,
+                                ImageEditRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -125,6 +126,36 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
     except Exception as e:
         logger.error(f"Error processing image generation request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+@router.post("/v1/images/edits")
+async def create_image_edit(
+    image: UploadFile = File(..., description="The image to edit. Must be a valid PNG file, less than 4MB, and square."),
+    image_edit_request: ImageEditRequest = Body(..., description="The image edit request.")
+) -> Any:
+    """Handle image editing requests with dynamic provider routing."""
+
+    handler = raw_request.app.state.handler
+    if handler is None:
+        return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
+    
+    # Check if the handler is an MLXFluxHandler
+    if not isinstance(handler, MLXFluxHandler):
+        return JSONResponse(
+            content=create_error_response(
+                "Image editing requests require an image generation model. Use --model-type image-generation.",
+                "unsupported_request",
+                400
+            ),
+            status_code=400
+        )
+    try:
+        image_response = await handler.edit_image(image, image_edit_request)
+        return image_response
+    except Exception as e:
+        logger.error(f"Error processing image edit request: {str(e)}", exc_info=True)
+        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+    
+
     
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
     embeddings_response = []
