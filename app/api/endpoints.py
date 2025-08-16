@@ -168,7 +168,7 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
             id=get_tool_call_id(),
             function=ChoiceDeltaFunctionCall(
                 name=chunk["name"],
-                arguments=""
+                arguments=chunk["arguments"]
             )
         )
     else:
