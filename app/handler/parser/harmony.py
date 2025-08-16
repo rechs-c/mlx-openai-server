@@ -123,8 +123,8 @@ class HarmonyParser:
                             if hasattr(stream_text, 'current_recipient') and stream_text.current_recipient:
                                 function_name = stream_text.current_recipient.replace("functions.", "")
                                 self._current_function_name = function_name
-                            function_arguments = [""]  # Initialize with empty string
-                            self._function_arguments = [""]
+                            function_arguments = [content]
+                            self._function_arguments = [content]
                             
                     elif current_channel == ChannelType.FINAL.value:
                         contents.append(content)
