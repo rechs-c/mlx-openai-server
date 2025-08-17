@@ -336,7 +336,6 @@ class MLXFluxHandler:
                 "num_inference_steps": steps,
                 "width": width,
                 "height": height,
-                "seed": seed,
                 "guidance": guidance,
             }
             
