@@ -1,5 +1,6 @@
 import gc
 import mlx.core as mx
+from mlx_vlm.models.cache import make_prompt_cache
 from mlx_vlm.prompt_utils import apply_chat_template
 from typing import List, Dict, Union, Generator, Optional
 from mlx_vlm import load, generate, stream_generate, prepare_inputs
@@ -18,7 +19,7 @@ class MLX_VLM:
     supporting both streaming and non-streaming modes.
     """
     
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, context_length: int = None):
         """
         Initialize the MLX_VLM model.
         
@@ -30,6 +31,7 @@ class MLX_VLM:
         """
         try:
             self.model, self.processor = load(model_path, lazy=False, trust_remote_code=True)
+            self.max_kv_size = context_length
             self.config = self.model.config
         except Exception as e:
             raise ValueError(f"Error loading model: {str(e)}")
@@ -77,6 +79,8 @@ class MLX_VLM:
             "max_tokens": kwargs.get("max_tokens", DEFAULT_MAX_TOKENS),
             **kwargs
         }
+
+        prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
         
         if not stream:
             # Non-streaming mode: return complete response
@@ -86,6 +90,7 @@ class MLX_VLM:
                 formatted_prompt,
                 image=images,
                 audio=audios,
+                prompt_cache=prompt_cache,
                 **model_params
             )
             return result.text
@@ -97,6 +102,7 @@ class MLX_VLM:
                 formatted_prompt,
                 image=images,
                 audio=audios,
+                prompt_cache=prompt_cache,
                 **model_params
             )
         
