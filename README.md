@@ -8,55 +8,6 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 > **Note:** This project currently supports **MacOS with M-series chips** only as it specifically leverages MLX, Apple's framework optimized for Apple Silicon.
 
----
-
-## Community & Support
-
-We're grateful for the amazing community support this project has received! Join our growing community of MLX enthusiasts and local AI developers.
-
-### ⭐ Star & Support
-If this project has been useful to you, please give it a star on GitHub! Your stars help:
-- Increase visibility and discoverability
-- Motivate continued development and improvements
-- Help other developers find this useful tool
-
-[![GitHub stars](https://img.shields.io/github/stars/cubist38/mlx-openai-server?style=social)](https://github.com/cubist38/mlx-openai-server)
-[![GitHub issues](https://img.shields.io/github/issues/cubist38/mlx-openai-server)](https://github.com/cubist38/mlx-openai-server/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/cubist38/mlx-openai-server)](https://github.com/cubist38/mlx-openai-server/pulls)
-
-### 💬 Get Help & Connect
-- **GitHub Discussions**: [Share ideas, ask questions, and connect with other users](https://github.com/cubist38/mlx-openai-server/discussions)
-- **GitHub Issues**: [Report bugs, request features, or ask for help](https://github.com/cubist38/mlx-openai-server/issues)
-- **Example Notebooks**: Check out our comprehensive examples in the `examples/` directory
-- **Video Tutorials**: Watch our [setup demo](https://youtu.be/D9a3AZSj6v8) and [RAG demo](https://youtu.be/ANUEZkmR-0s)
-
-### 🤝 Contribute to the Project
-We welcome contributions from the community! Here are some ways you can help:
-
-- **🐛 Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce
-- **💡 Feature Requests**: Have an idea for a new feature? Let us know!
-- **📚 Documentation**: Help improve our docs, examples, or tutorials
-- **💻 Code Contributions**: Submit pull requests for bug fixes or new features
-- **🎯 Community Support**: Help other users in discussions and issues
-- **📖 Examples**: Share your own use cases and example notebooks
-
-### 📢 Share Your Experience
-If you're using this project in your work or research, we'd love to hear about it! Consider:
-- Sharing your use cases and success stories in discussions
-- Mentioning us in your projects, papers, or presentations
-- Writing blog posts or tutorials about your experience
-- Contributing to our example notebooks
-
-### 🚀 Community Highlights
-- **Active Development**: Regular updates and improvements
-- **Growing Ecosystem**: Integration with the broader MLX community
-- **Real-world Applications**: Used in research, development, and production
-- **Open Source**: MIT licensed and community-driven
-
-Your support and contributions make this project better for everyone in the MLX and local AI community!
-
----
-
 ## Table of Contents
 - [Key Features](#key-features)
 - [Demo](#demo)
@@ -71,6 +22,7 @@ Your support and contributions make this project better for everyone in the MLX 
 - [Request Queue System](#request-queue-system)
 - [API Response Schemas](#api-response-schemas)
 - [Example Notebooks](#example-notebooks)
+- [Community & Support](#community--support)
 - [Large Models](#large-models)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1193,6 +1145,122 @@ The repository includes example notebooks to help you get started with different
   - Working with the flux-kontext configuration for contextual editing
   - Understanding the differences between generation and editing workflows
   - Best practices for effective image editing prompts
+
+## Community & Support
+
+We're thrilled by the incredible community that has grown around this project! Join thousands of developers, researchers, and AI enthusiasts who are building the future of local AI with MLX.
+
+### 🌟 Show Your Support
+
+**Star this repository** if you find it useful! Your stars help:
+- 📈 **Increase visibility** and help other developers discover this tool
+- 🚀 **Motivate continued development** and new features
+- 🤝 **Build community recognition** for the MLX ecosystem
+
+[![GitHub stars](https://img.shields.io/github/stars/cubist38/mlx-openai-server?style=social&label=Star)](https://github.com/cubist38/mlx-openai-server)
+[![GitHub forks](https://img.shields.io/github/forks/cubist38/mlx-openai-server?style=social&label=Fork)](https://github.com/cubist38/mlx-openai-server/fork)
+[![GitHub issues](https://img.shields.io/github/issues/cubist38/mlx-openai-server?color=blue&label=Issues)](https://github.com/cubist38/mlx-openai-server/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/cubist38/mlx-openai-server?color=green&label=PRs)](https://github.com/cubist38/mlx-openai-server/pulls)
+[![GitHub discussions](https://img.shields.io/github/discussions/cubist38/mlx-openai-server?color=purple&label=Discussions)](https://github.com/cubist38/mlx-openai-server/discussions)
+
+### 🆘 Get Help & Connect
+
+#### 📚 Learning Resources
+- **📖 Documentation**: This README and comprehensive API docs
+- **🎥 Video Tutorials**: 
+  - [Setup & Installation Demo](https://youtu.be/D9a3AZSj6v8)
+  - [RAG Implementation Demo](https://youtu.be/ANUEZkmR-0s)
+- **📓 Example Notebooks**: Check out our `examples/` directory for practical use cases
+- **🔍 Search Issues**: Your question might already be answered!
+
+#### 💬 Community Channels
+- **🗨️ GitHub Discussions**: [Ask questions, share ideas, and connect with users](https://github.com/cubist38/mlx-openai-server/discussions)
+- **🐛 GitHub Issues**: [Report bugs, request features, or get technical help](https://github.com/cubist38/mlx-openai-server/issues)
+- **📢 Community Showcase**: Share your projects and use cases
+
+#### 🚨 Before Asking for Help
+1. **Search existing issues** and discussions
+2. **Check the documentation** and examples
+3. **Watch the video tutorials** for common setup issues
+4. **Provide system details** (macOS version, Python version, model used)
+5. **Include error messages** and logs when reporting issues
+
+### 🤝 Contribute & Give Back
+
+We welcome contributions of all kinds! Here's how you can help:
+
+#### 💻 Code Contributions
+- **🐛 Bug Fixes**: Help squash bugs and improve stability
+- **✨ New Features**: Add capabilities that benefit the community
+- **🔧 Performance**: Optimize code for better speed and efficiency
+- **🧪 Testing**: Improve test coverage and reliability
+
+#### 📚 Documentation & Examples
+- **📖 Documentation**: Improve guides, tutorials, and API docs
+- **📓 Examples**: Share your use cases and example notebooks
+- **🎥 Tutorials**: Create video guides or blog posts
+- **🌐 Translations**: Help translate documentation to other languages
+
+#### 🎯 Community Support
+- **💬 Help Others**: Answer questions in discussions and issues
+- **🔍 Bug Reports**: Report issues with detailed reproduction steps
+- **💡 Feature Requests**: Suggest improvements and new capabilities
+- **⭐ Code Reviews**: Review pull requests and provide feedback
+
+### 📢 Share Your Success
+
+**We love hearing about your projects!** Share how you're using MLX OpenAI Server:
+
+#### 🏆 Success Stories
+- **Research Projects**: Academic papers, experiments, and discoveries
+- **Production Apps**: Real-world applications and services
+- **Open Source Tools**: Libraries and frameworks built on top
+- **Educational Content**: Courses, workshops, and tutorials
+
+#### 📈 Community Impact
+- **Mention us** in your projects, papers, or presentations
+- **Write blog posts** about your experience and use cases
+- **Share on social media** with #MLX #LocalAI #OpenAI
+- **Present at conferences** or meetups about local AI
+
+### 🏗️ Community Highlights
+
+#### 🚀 Active Development
+- **Regular Updates**: New features and improvements every week
+- **Rapid Response**: Quick fixes for critical issues
+- **Community-Driven**: Features prioritized based on user feedback
+- **Open Roadmap**: Transparent development planning
+
+#### 🌍 Growing Ecosystem
+- **MLX Integration**: Deep integration with Apple's MLX framework
+- **Model Support**: Expanding support for new model types
+- **Tool Ecosystem**: Compatible with popular AI tools and frameworks
+- **Community Models**: Support for community-contributed models
+
+#### 💼 Real-World Impact
+- **Research**: Used in academic research and experiments
+- **Startups**: Powering production AI applications
+- **Education**: Teaching local AI development
+- **Open Source**: Contributing to the broader AI ecosystem
+
+#### 🎯 Community Values
+- **Open Source**: MIT licensed and community-driven
+- **Inclusive**: Welcoming to developers of all skill levels
+- **Helpful**: Supportive community focused on helping others succeed
+- **Innovative**: Pushing the boundaries of local AI capabilities
+
+### 🎉 Join the Movement
+
+**You're part of something special!** This project represents the future of local AI development:
+
+- **🔒 Privacy-First**: Run AI models locally without sending data to the cloud
+- **⚡ Performance**: Optimized for Apple Silicon with incredible speed
+- **🌱 Sustainable**: Reduce carbon footprint with local processing
+- **🎯 Accessible**: Make AI development available to everyone
+
+**Your support and contributions make this project better for everyone in the MLX and local AI community!** 🚀
+
+---
 
 ## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.
