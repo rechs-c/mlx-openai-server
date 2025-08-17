@@ -10,45 +10,54 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ---
 
-## Community Support & Stars
+## Community & Support
 
-We're grateful for the amazing community support this project has received! If you find this project helpful, please consider:
+We're grateful for the amazing community support this project has received! Join our growing community of MLX enthusiasts and local AI developers.
 
-### ⭐ Star the Repository
+### ⭐ Star & Support
 If this project has been useful to you, please give it a star on GitHub! Your stars help:
 - Increase visibility and discoverability
 - Motivate continued development and improvements
 - Help other developers find this useful tool
 
 [![GitHub stars](https://img.shields.io/github/stars/cubist38/mlx-openai-server?style=social)](https://github.com/cubist38/mlx-openai-server)
+[![GitHub issues](https://img.shields.io/github/issues/cubist38/mlx-openai-server)](https://github.com/cubist38/mlx-openai-server/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/cubist38/mlx-openai-server)](https://github.com/cubist38/mlx-openai-server/pulls)
 
-### 🤝 Community Contributions
+### 💬 Get Help & Connect
+- **GitHub Discussions**: [Share ideas, ask questions, and connect with other users](https://github.com/cubist38/mlx-openai-server/discussions)
+- **GitHub Issues**: [Report bugs, request features, or ask for help](https://github.com/cubist38/mlx-openai-server/issues)
+- **Example Notebooks**: Check out our comprehensive examples in the `examples/` directory
+- **Video Tutorials**: Watch our [setup demo](https://youtu.be/D9a3AZSj6v8) and [RAG demo](https://youtu.be/ANUEZkmR-0s)
+
+### 🤝 Contribute to the Project
 We welcome contributions from the community! Here are some ways you can help:
 
-- **Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce
-- **Feature Requests**: Have an idea for a new feature? Let us know!
-- **Documentation**: Help improve our docs, examples, or tutorials
-- **Code Contributions**: Submit pull requests for bug fixes or new features
-- **Community Support**: Help other users in discussions and issues
+- **🐛 Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce
+- **💡 Feature Requests**: Have an idea for a new feature? Let us know!
+- **📚 Documentation**: Help improve our docs, examples, or tutorials
+- **💻 Code Contributions**: Submit pull requests for bug fixes or new features
+- **🎯 Community Support**: Help other users in discussions and issues
+- **📖 Examples**: Share your own use cases and example notebooks
 
-### 📢 Spread the Word
+### 📢 Share Your Experience
 If you're using this project in your work or research, we'd love to hear about it! Consider:
-- Sharing your use cases and success stories
+- Sharing your use cases and success stories in discussions
 - Mentioning us in your projects, papers, or presentations
 - Writing blog posts or tutorials about your experience
 - Contributing to our example notebooks
 
-### 💬 Join the Discussion
-- **GitHub Discussions**: Share ideas, ask questions, and connect with other users
-- **Issues**: Report bugs, request features, or ask for help
-- **Community Examples**: Share your own examples and use cases
+### 🚀 Community Highlights
+- **Active Development**: Regular updates and improvements
+- **Growing Ecosystem**: Integration with the broader MLX community
+- **Real-world Applications**: Used in research, development, and production
+- **Open Source**: MIT licensed and community-driven
 
 Your support and contributions make this project better for everyone in the MLX and local AI community!
 
 ---
 
 ## Table of Contents
-- [Community Support & Stars](#community-support--stars)
 - [Key Features](#key-features)
 - [Demo](#demo)
 - [OpenAI Compatibility](#openai-compatibility)
@@ -1195,29 +1204,133 @@ bash configure_mlx.sh
 ```
 
 ## Contributing
-We welcome contributions to improve this project! Here's how you can contribute:
-1. Fork the repository to your GitHub account.
-2. Create a new branch for your feature or bug fix:
+
+We welcome contributions to improve this project! Whether you're fixing bugs, adding features, improving documentation, or sharing examples, your contributions are valuable to the community.
+
+### 🚀 Quick Start
+1. **Fork** the repository to your GitHub account
+2. **Clone** your fork locally:
     ```bash
-    git checkout -b feature-name
+    git clone https://github.com/YOUR_USERNAME/mlx-openai-server.git
+    cd mlx-openai-server
     ```
-3. Commit your changes with clear and concise messages:
+3. **Create** a new branch for your changes:
     ```bash
-    git commit -m "Add feature-name"
+    git checkout -b feature/your-feature-name
     ```
-4. Push your branch to your forked repository:
+4. **Make** your changes and test them thoroughly
+5. **Commit** with clear, descriptive messages:
     ```bash
-    git push origin feature-name
+    git commit -m "feat: add new model support"
+    git commit -m "fix: resolve audio processing issue"
+    git commit -m "docs: update installation guide"
     ```
-5. Open a pull request to the main repository for review.
+6. **Push** to your fork:
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+7. **Open** a pull request with a detailed description
+
+### 📋 Contribution Guidelines
+
+#### Code Contributions
+- Follow existing code style and patterns
+- Add tests for new features when possible
+- Update documentation for API changes
+- Ensure all tests pass before submitting
+
+#### Documentation Improvements
+- Fix typos, grammar, or unclear explanations
+- Add missing examples or use cases
+- Improve code comments and docstrings
+- Update README sections as needed
+
+#### Bug Reports
+- Use the [GitHub issue template](https://github.com/cubist38/mlx-openai-server/issues/new)
+- Include detailed steps to reproduce
+- Provide system information (macOS version, Python version)
+- Share error messages and logs
+
+#### Feature Requests
+- Describe the use case and expected behavior
+- Explain why this feature would be valuable
+- Consider implementation complexity
+- Check if similar features already exist
+
+### 🏷️ Commit Message Convention
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `style:` Code style changes (formatting, etc.)
+- `refactor:` Code refactoring
+- `test:` Adding or updating tests
+- `chore:` Maintenance tasks
+
+### 🤝 Review Process
+- All contributions require review before merging
+- We aim to review PRs within 48 hours
+- Maintainers may request changes or improvements
+- Once approved, your contribution will be merged
+
+Thank you for contributing to the MLX ecosystem!
 
 ## License
 This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute it under the terms of the license.
 
 ## Support
-If you encounter any issues or have questions, please:
-- Open an issue in the repository.
-- Contact the maintainers via the provided contact information.
+
+Need help with MLX OpenAI Server? We're here to support you! Here are the best ways to get assistance:
+
+### 🆘 Getting Help
+
+#### 📝 Before Asking for Help
+1. **Check the documentation** - This README and example notebooks
+2. **Search existing issues** - Your question might already be answered
+3. **Review the examples** - Check the `examples/` directory for use cases
+4. **Watch the demos** - Our [setup video](https://youtu.be/D9a3AZSj6v8) and [RAG demo](https://youtu.be/ANUEZkmR-0s)
+
+#### 🐛 Reporting Issues
+- **GitHub Issues**: [Create a new issue](https://github.com/cubist38/mlx-openai-server/issues/new) with:
+  - Clear description of the problem
+  - Steps to reproduce
+  - System information (macOS version, Python version)
+  - Error messages and logs
+  - Expected vs actual behavior
+
+#### 💬 Community Support
+- **GitHub Discussions**: [Ask questions and share experiences](https://github.com/cubist38/mlx-openai-server/discussions)
+- **GitHub Issues**: For bug reports and feature requests
+- **Example Notebooks**: Learn from community examples
+
+### 🔧 Common Issues & Solutions
+
+#### Installation Problems
+- **MLX Installation**: Ensure you're on macOS with M-series chip
+- **Python Version**: Use Python 3.11+ for best compatibility
+- **Dependencies**: Run `pip install -r requirements.txt` if needed
+
+#### Model Loading Issues
+- **Memory**: Large models may require more RAM
+- **Model Path**: Verify the model path is correct
+- **Quantization**: Try different quantization levels (4-bit, 8-bit, 16-bit)
+
+#### Performance Issues
+- **Context Length**: Adjust context length for memory optimization
+- **Quantization**: Use lower precision for faster inference
+- **System Resources**: Close other applications to free up memory
+
+### 📚 Additional Resources
+- **MLX Documentation**: [ml-explore/mlx](https://github.com/ml-explore/mlx)
+- **MLX Models**: [mlx-community](https://huggingface.co/mlx-community)
+- **Example Notebooks**: Check the `examples/` directory
+- **Video Tutorials**: Watch our setup and demo videos
+
+### ⏱️ Response Times
+- **Bug Reports**: We aim to respond within 24-48 hours
+- **Feature Requests**: Reviewed weekly
+- **Community Questions**: Usually answered within a few days
+- **Pull Requests**: Reviewed within 48 hours
 
 Stay tuned for updates and enhancements!
 
@@ -1225,22 +1338,32 @@ Stay tuned for updates and enhancements!
 
 We extend our heartfelt gratitude to the following individuals and organizations whose contributions have been instrumental in making this project possible:
 
-### Core Technologies
-- [MLX team](https://github.com/ml-explore/mlx) for developing the groundbreaking MLX framework, which provides the foundation for efficient machine learning on Apple Silicon
-- [mlx-lm](https://github.com/ml-explore/mlx-lm) for efficient large language models support
-- [mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main) for pioneering multimodal model support within the MLX ecosystem
-- [mlx-embeddings](https://github.com/Blaizzy/mlx-embeddings) for text embeddings generation with optimized memory management
-- [mflux](https://github.com/filipstrand/mflux) for Flux-series image generation models with advanced configurations
-- [mlx-community](https://huggingface.co/mlx-community) for curating and maintaining a diverse collection of high-quality MLX models
+### 🏗️ Core Technologies
+- **[MLX team](https://github.com/ml-explore/mlx)** - For developing the groundbreaking MLX framework, which provides the foundation for efficient machine learning on Apple Silicon
+- **[mlx-lm](https://github.com/ml-explore/mlx-lm)** - For efficient large language models support and optimization
+- **[mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main)** - For pioneering multimodal model support within the MLX ecosystem
+- **[mlx-embeddings](https://github.com/Blaizzy/mlx-embeddings)** - For text embeddings generation with optimized memory management
+- **[mflux](https://github.com/filipstrand/mflux)** - For Flux-series image generation models with advanced configurations
+- **[mlx-community](https://huggingface.co/mlx-community)** - For curating and maintaining a diverse collection of high-quality MLX models
 
-### Open Source Community
-We deeply appreciate the broader open-source community for their invaluable contributions. Your dedication to:
-- Innovation in machine learning and AI
-- Collaborative development practices
-- Knowledge sharing and documentation
-- Continuous improvement of tools and frameworks
+### 🤝 Open Source Community
+We deeply appreciate the broader open-source community for their invaluable contributions:
 
-Your collective efforts continue to drive progress and make projects like this possible. We are proud to be part of this vibrant ecosystem.
+- **Model Developers** - For creating and sharing the models that power this server
+- **Framework Contributors** - For building the tools and libraries that make this possible
+- **Documentation Writers** - For creating comprehensive guides and tutorials
+- **Community Members** - For testing, feedback, and continuous improvement
 
-### Special Thanks
-A special acknowledgment to all contributors, users, and supporters who have helped shape this project through their feedback, bug reports, and suggestions. Your engagement helps make this project better for everyone.
+### 🌟 Community Contributors
+A special acknowledgment to all contributors, users, and supporters who have helped shape this project through their:
+- **Feedback and suggestions** that drive improvements
+- **Bug reports** that help maintain quality
+- **Code contributions** that add new features
+- **Documentation improvements** that help others
+- **Community support** that helps users succeed
+- **Example sharing** that demonstrates real-world applications
+
+### 📈 Growing Together
+Your engagement and contributions help make this project better for everyone in the MLX and local AI community. Together, we're building a more accessible and powerful ecosystem for local AI development.
+
+Thank you for being part of this journey! 🚀
