@@ -150,12 +150,11 @@ class MLXFluxHandler:
             )
             raise HTTPException(status_code=500, detail=content)
 
-    async def edit_image(self, image: UploadFile, image_edit_request: ImageEditRequest) -> ImageEditResponse:
+    async def edit_image(self, image_edit_request: ImageEditRequest) -> ImageEditResponse:
         """
         Edit an image based on the request parameters.
         
         Args:
-            image: Uploaded image file to edit
             image_edit_request: Request parameters for image editing
             
         Returns:
@@ -164,6 +163,7 @@ class MLXFluxHandler:
         Raises:
             HTTPException: For validation errors, queue capacity issues, or processing failures
         """
+        image = image_edit_request.image
         # Validate image file type and size
         if not image.content_type or image.content_type not in ["image/png", "image/jpeg", "image/jpg"]:
             raise HTTPException(

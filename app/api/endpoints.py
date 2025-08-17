@@ -4,7 +4,7 @@ import time
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union, AsyncGenerator
 
-from fastapi import APIRouter, Request, File, Body, UploadFile
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
@@ -129,8 +129,8 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
 
 @router.post("/v1/images/edits")
 async def create_image_edit(
-    image: UploadFile = File(..., description="The image to edit. Must be a valid PNG file, less than 4MB, and square."),
-    image_edit_request: ImageEditRequest = Body(..., description="The image edit request.")
+    image_edit_request: ImageEditRequest,
+    raw_request: Request
 ) -> Any:
     """Handle image editing requests with dynamic provider routing."""
 
@@ -149,7 +149,7 @@ async def create_image_edit(
             status_code=400
         )
     try:
-        image_response = await handler.edit_image(image, image_edit_request)
+        image_response = await handler.edit_image(image_edit_request)
         return image_response
     except Exception as e:
         logger.error(f"Error processing image edit request: {str(e)}", exc_info=True)

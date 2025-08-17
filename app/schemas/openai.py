@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 import random
+from fastapi import File, UploadFile
 
 from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
@@ -344,6 +345,7 @@ class ImageGenerationErrorResponse(BaseModel):
 
 class ImageEditRequest(BaseModel):
     """Request schema for OpenAI-compatible image edit API"""
+    image: UploadFile = File(..., description="The image to edit. Must be a valid PNG file, less than 4MB, and square."),
     prompt: str = Field(..., description="A text description of the desired image edits. The maximum length is 1000 characters.")
     negative_prompt: Optional[str] = Field(None, description="A text description of the desired image edits. The maximum length is 1000 characters.", max_length=1000)
     model: Optional[str] = Field(default=Config.IMAGE_GENERATION_MODEL, description="The model to use for image editing")
