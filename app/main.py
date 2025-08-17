@@ -77,6 +77,8 @@ def create_lifespan(config_args):
                     disable_auto_resize=getattr(config_args, 'disable_auto_resize', False)
                 )
             elif config_args.model_type == "image-generation":
+                if not config_args.config_name in ["flux-schnell", "flux-dev", "flux-krea-dev"]:
+                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-schnell, flux-dev, and flux-krea-dev are supported for image generation.")
                 handler = MLXFluxHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency,
@@ -89,6 +91,17 @@ def create_lifespan(config_args):
                 handler = MLXEmbeddingsHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
+                )
+            elif config_args.model_type == "image-edit":
+                if config_args.config_name != "flux-kontext":
+                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext is supported for image edit.")
+                handler = MLXFluxHandler(
+                    model_path=model_identifier,
+                    max_concurrency=config_args.max_concurrency,
+                    quantize=getattr(config_args, 'quantize', 8),
+                    config_name=getattr(config_args, 'config_name', 'flux-schnell'),
+                    lora_paths=getattr(config_args, 'lora_paths', None),
+                    lora_scales=getattr(config_args, 'lora_scales', None)
                 )
             else:
                 handler = MLXLMHandler(
