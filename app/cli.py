@@ -9,9 +9,10 @@ from app.main import setup_server
 
 class Config:
     """Configuration container for server parameters."""
-    def __init__(self, model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, quantize=8, config_name=None, lora_paths=None, lora_scales=None):
+    def __init__(self, model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, quantize=8, config_name=None, lora_paths=None, lora_scales=None):
         self.model_path = model_path
         self.model_type = model_type
+        self.context_length = context_length
         self.port = port
         self.host = host
         self.max_concurrency = max_concurrency
@@ -73,11 +74,12 @@ def cli():
 
 
 @lru_cache(maxsize=1)
-def get_server_config(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
+def get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
     """Cache and return server configuration to avoid redundant processing."""
     return Config(
         model_path=model_path,
         model_type=model_type,
+        context_length=context_length,
         port=port,
         host=host,
         max_concurrency=max_concurrency,
@@ -98,6 +100,8 @@ def print_startup_banner(args):
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     logger.info(f"🔮 Model Path: {args.model_path}")
     logger.info(f"🔮 Model Type: {args.model_type}")
+    if args.context_length:
+        logger.info(f"🔮 Context Length: {args.context_length}")
     logger.info(f"🌐 Host: {args.host}")
     logger.info(f"🔌 Port: {args.port}")
     logger.info(f"⚡ Max Concurrency: {args.max_concurrency}")
@@ -124,6 +128,12 @@ def print_startup_banner(args):
     default="lm",
     type=click.Choice(["lm", "multimodal", "image-generation", "image-edit", "embeddings"]),
     help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation, image-edit: flux image edit, embeddings: text embeddings)"
+)
+@click.option(
+    "--context-length",
+    default=None,
+    type=int,
+    help="Context length for language models."
 )
 @click.option(
     "--port", 
@@ -183,7 +193,7 @@ def print_startup_banner(args):
     is_flag=True,
     help="Disable automatic model resizing. Only work for Vision Language Models."
 )
-def launch(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
+def launch(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
     """Launch the MLX server with the specified model."""
     try:
         # Validate that config name is only used with image-generation and image-edit model types
@@ -197,7 +207,7 @@ def launch(model_path, model_type, port, host, max_concurrency, queue_timeout, q
             config_name = "flux-kontext"
         
         # Get optimized configuration
-        args = get_server_config(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)
+        args = get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)
         
         # Display startup information
         print_startup_banner(args)

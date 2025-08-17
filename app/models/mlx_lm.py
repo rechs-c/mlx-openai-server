@@ -6,6 +6,7 @@ from mlx_lm.generate import (
     stream_generate,
 )
 from outlines.processors import JSONLogitsProcessor
+from mlx_lm.models.cache import make_prompt_cache
 from mlx_lm.sample_utils import make_sampler, make_logits_processors
 from app.utils.outlines_transformer_tokenizer import OutlinesTransformerTokenizer
 
@@ -27,12 +28,13 @@ class MLX_LM:
     supporting both streaming and non-streaming modes.
     """
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, context_length: int = 32768):
         try:
             self.model, self.tokenizer = load(model_path)
             self.pad_token_id = self.tokenizer.pad_token_id
             self.bos_token = self.tokenizer.bos_token
             self.model_type = self.model.model_type
+            self.max_kv_size = context_length
             self.outlines_tokenizer = OutlinesTransformerTokenizer(self.tokenizer)
         except Exception as e:
             raise ValueError(f"Error loading model: {str(e)}")
@@ -175,6 +177,7 @@ class MLX_LM:
             )
         
         mx.random.seed(seed)
+        prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
 
         input_tokens = self.tokenizer.apply_chat_template(
             messages,
@@ -193,6 +196,7 @@ class MLX_LM:
                 input_tokens,
                 sampler=sampler,
                 max_tokens=max_tokens,
+                prompt_cache=prompt_cache,
                 logits_processors=logits_processors
             )
         else:
@@ -203,5 +207,6 @@ class MLX_LM:
                 input_tokens,
                 sampler=sampler,
                 max_tokens=max_tokens,
+                prompt_cache=prompt_cache,
                 logits_processors=logits_processors
             )

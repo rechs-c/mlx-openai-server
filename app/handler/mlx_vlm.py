@@ -21,7 +21,7 @@ class MLXVLMHandler:
     Provides caching, concurrent image processing, audio processing, and robust error handling.
     """
 
-    def __init__(self, model_path: str, max_workers: int = 4, max_concurrency: int = 1, disable_auto_resize: bool = False):
+    def __init__(self, model_path: str, context_length: int = None, max_workers: int = 4, max_concurrency: int = 1, disable_auto_resize: bool = False):
         """
         Initialize the handler with the specified model path.
         

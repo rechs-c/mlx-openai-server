@@ -42,6 +42,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - 🛡️ **Robust error handling and request management**
 - 🎛️ **LoRA adapter support** for fine-tuned image generation
 - ⚡ **Configurable quantization** (4-bit, 8-bit, 16-bit) for optimal performance
+- 🧠 **Customizable context length** for memory optimization and performance tuning
 
 ---
 
@@ -98,6 +99,21 @@ Each configuration supports:
 - **Quantization levels**: 4-bit, 8-bit, or 16-bit for memory/performance optimization
 - **LoRA adapters**: Multiple LoRA paths with custom scaling for fine-tuned generation (not supported for `flux-kontext`)
 - **Custom parameters**: Steps, guidance, negative prompts, and more
+
+### Context Length Configuration
+
+The server supports customizable context length for language models to optimize memory usage and performance:
+
+- **Default behavior**: When `--context-length` is not specified, the server uses the model's default context length
+- **Memory optimization**: Setting a smaller context length can significantly reduce memory usage, especially for large models
+- **Performance tuning**: Adjust context length based on your specific use case and available system resources
+- **Supported models**: Context length configuration works with both text-only (`lm`) and multimodal (`multimodal`) model types
+- **Prompt caching**: The server uses prompt caching to optimize memory usage when context length is specified
+
+**Example use cases:**
+- **Short conversations**: Use smaller context lengths (e.g., 2048, 4096) for chat applications
+- **Document processing**: Use larger context lengths (e.g., 8192, 16384) for long document analysis
+- **Memory-constrained systems**: Reduce context length to fit larger models in limited RAM
 
 ## Installation
 
@@ -264,6 +280,7 @@ mlx-openai-server launch \
   - `image-edit` for image editing models
   - `embeddings` for embeddings models
   - Default: `lm`
+- `--context-length`: Context length for language models. Controls the maximum sequence length for text processing and memory usage optimization. Default: `None` (uses model's default context length).
 - `--config-name`: Flux model configuration to use. Only used for `image-generation` and `image-edit` model types:
   - For `image-generation`: `flux-schnell`, `flux-dev`, `flux-krea-dev`
   - For `image-edit`: `flux-kontext`
@@ -285,6 +302,7 @@ mlx-openai-server launch \
 python -m app.main \
   --model-path mlx-community/gemma-3-4b-it-4bit \
   --model-type lm \
+  --context-length 8192 \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
@@ -295,6 +313,7 @@ python -m app.main \
 python -m app.main \
   --model-path mlx-community/llava-phi-3-vision-4bit \
   --model-type multimodal \
+  --context-length 4096 \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
@@ -378,7 +397,7 @@ mlx-openai-server launch --help
 **Launch the server:**
 ```bash
 # For text-only or multimodal models
-mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --port 8000
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --context-length 8192 --port 8000
 
 # For image generation models (Flux-series)
 mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name <flux-schnell|flux-dev|flux-krea-dev> --port 8000

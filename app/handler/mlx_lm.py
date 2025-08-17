@@ -19,7 +19,7 @@ class MLXLMHandler:
     Provides request queuing, metrics tracking, and robust error handling.
     """
 
-    def __init__(self, model_path: str, max_concurrency: int = 1):
+    def __init__(self, model_path: str, context_length: int = None, max_concurrency: int = 1):
         """
         Initialize the handler with the specified model path.
         
@@ -28,7 +28,7 @@ class MLXLMHandler:
             max_concurrency (int): Maximum number of concurrent model inference tasks.
         """
         self.model_path = model_path
-        self.model = MLX_LM(model_path)
+        self.model = MLX_LM(model_path, context_length)
         self.model_created = int(time.time())  # Store creation time when model is loaded
         self.model_type = self.model.get_model_type()
         
