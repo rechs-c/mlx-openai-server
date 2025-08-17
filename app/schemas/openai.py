@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 import random
-from fastapi import File, UploadFile
+from fastapi import UploadFile
 
 from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
@@ -343,17 +343,22 @@ class ImageGenerationErrorResponse(BaseModel):
     created: int = Field(..., description="The Unix timestamp (in seconds) when the error occurred")
     error: ImageGenerationError = Field(..., description="Error details")
 
-class ImageEditRequest(BaseModel):
-    """Request schema for OpenAI-compatible image edit API"""
-    image: UploadFile = File(..., description="The image to edit. Must be a valid PNG file, less than 4MB, and square."),
-    prompt: str = Field(..., description="A text description of the desired image edits. The maximum length is 1000 characters.")
-    negative_prompt: Optional[str] = Field(None, description="A text description of the desired image edits. The maximum length is 1000 characters.", max_length=1000)
-    model: Optional[str] = Field(default=Config.IMAGE_GENERATION_MODEL, description="The model to use for image editing")
-    guidance_scale: Optional[float] = Field(default=2.5, ge=0.0, le=20.0, description="Guidance scale for the image editing")
-    response_format: Optional[ResponseFormat] = Field(default=ResponseFormat.B64_JSON, description="The format in which the generated images are returned")
-    seed: Optional[int] = Field(42, description="Seed for reproducible generation")
-    size: Optional[Union[ImageSize, None]] = Field(default=None, description="The size of the generated images")
-    steps: Optional[int] = Field(default=4, ge=1, le=50, description="The number of inference steps (1-50)")
+class ImageEditRequest:
+    """Request data for OpenAI-compatible image edit API"""
+    def __init__(self, image: UploadFile, prompt: str, model: Optional[str] = None,
+                 negative_prompt: Optional[str] = None, guidance_scale: Optional[float] = 2.5,
+                 response_format: Optional[ResponseFormat] = ResponseFormat.B64_JSON,
+                 seed: Optional[int] = 42, size: Optional[ImageSize] = None,
+                 steps: Optional[int] = 4):
+        self.image = image
+        self.prompt = prompt
+        self.model = model or Config.IMAGE_GENERATION_MODEL
+        self.negative_prompt = negative_prompt
+        self.guidance_scale = guidance_scale
+        self.response_format = response_format
+        self.seed = seed
+        self.size = size
+        self.steps = steps
 
 class ImageEditResponse(BaseModel):
     """Response schema for OpenAI-compatible image edit API"""
