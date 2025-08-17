@@ -35,7 +35,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 ## Key Features
 - 🚀 **Fast, local OpenAI-compatible API** for MLX models
 - 🖼️ **Multimodal model support** with vision, audio, and text
-- 🎨 **Advanced image generation** with MLX Flux-series models (schnell, dev, Krea-dev, kontext)
+- 🎨 **Advanced image generation and editing** with MLX Flux-series models (schnell, dev, Krea-dev, kontext)
 - 🔌 **Drop-in replacement** for OpenAI API in your apps
 - 📈 **Performance and queue monitoring endpoints**
 - 🧑‍💻 **Easy Python and CLI usage**
@@ -66,7 +66,7 @@ Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the ser
 This server implements the OpenAI API interface, allowing you to use it as a drop-in replacement for OpenAI's services in your applications. It supports:
 - Chat completions (both streaming and non-streaming)
 - Multimodal interactions (text, images, and audio)
-- Advanced image generation with Flux-series models
+- Advanced image generation and editing with Flux-series models
 - Embeddings generation
 - Function calling and tool use
 - Standard OpenAI request/response formats
@@ -74,25 +74,29 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 
 ## Supported Model Types
 
-The server supports four types of MLX models:
+The server supports five types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
 2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
 3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-series image generation models with enhanced configurations
-4. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
+4. **Image editing models** (`--model-type image-edit`) - Uses the `mflux` library for Flux-series image editing models
+5. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
 
-### Flux-Series Image Generation Models
+### Flux-Series Image Models
 
-The server now supports multiple Flux model configurations for advanced image generation:
+The server supports multiple Flux model configurations for advanced image generation and editing:
 
+#### Image Generation Models
 - **`flux-schnell`** - Fast generation with 4 default steps, no guidance (best for quick iterations)
 - **`flux-dev`** - High-quality generation with 25 default steps, 3.5 guidance (balanced quality/speed)
 - **`flux-krea-dev`** - Premium quality with 28 default steps, 4.5 guidance (highest quality)
-- **`flux-kontext`** - Context-aware generation with 28 default steps, 2.5 guidance (specialized for contextual prompts)
+
+#### Image Editing Models
+- **`flux-kontext`** - Context-aware editing with 28 default steps, 2.5 guidance (specialized for contextual image editing)
 
 Each configuration supports:
 - **Quantization levels**: 4-bit, 8-bit, or 16-bit for memory/performance optimization
-- **LoRA adapters**: Multiple LoRA paths with custom scaling for fine-tuned generation
+- **LoRA adapters**: Multiple LoRA paths with custom scaling for fine-tuned generation (not supported for `flux-kontext`)
 - **Custom parameters**: Steps, guidance, negative prompts, and more
 
 ## Installation
@@ -176,10 +180,10 @@ If the output is `i386` (on an M-series machine), you are using a non-native Pyt
 
 ### Starting the Server
 
-To start the MLX server, activate the virtual environment and run the main application file:
-```bash
-source oai-compat-server/bin/activate
+You can start the MLX server using either the Python module or the CLI command. Both methods support the same parameters.
 
+#### Method 1: Python Module
+```bash
 # For text-only or multimodal models
 python -m app.main \
   --model-path <path-to-mlx-model> \
@@ -191,8 +195,18 @@ python -m app.main \
 # For image generation models (Flux-series)
 python -m app.main \
   --model-type image-generation \
-  --model-name <dev|schnell> \
-  --config-name <flux-schnell|flux-dev|flux-krea-dev|flux-kontext> \
+  --model-path <path-to-local-flux-model> \
+  --config-name <flux-schnell|flux-dev|flux-krea-dev> \
+  --quantize <4|8|16> \
+  --max-concurrency 1 \
+  --queue-timeout 300 \
+  --queue-size 100
+
+# For image editing models (Flux-series)
+python -m app.main \
+  --model-type image-edit \
+  --model-path <path-to-local-flux-model> \
+  --config-name flux-kontext \
   --quantize <4|8|16> \
   --max-concurrency 1 \
   --queue-timeout 300 \
@@ -207,22 +221,66 @@ python -m app.main \
   --queue-size 100
 ```
 
+#### Method 2: CLI Command
+```bash
+# For text-only or multimodal models
+mlx-openai-server launch \
+  --model-path <path-to-mlx-model> \
+  --model-type <lm|multimodal> \
+  --port 8000
+
+# For image generation models (Flux-series)
+mlx-openai-server launch \
+  --model-type image-generation \
+  --model-path <path-to-local-flux-model> \
+  --config-name <flux-schnell|flux-dev|flux-krea-dev> \
+  --quantize 8 \
+  --port 8000
+
+# For image editing models (Flux-series)
+mlx-openai-server launch \
+  --model-type image-edit \
+  --model-path <path-to-local-flux-model> \
+  --config-name flux-kontext \
+  --quantize 8 \
+  --port 8000
+
+# With LoRA adapters (image generation only)
+mlx-openai-server launch \
+  --model-type image-generation \
+  --model-path <path-to-local-flux-model> \
+  --config-name flux-dev \
+  --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" \
+  --lora-scales "0.8,0.6" \
+  --port 8000
+```
+
 #### Server Parameters
-- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, and `embeddings` model types.
-- `--model-type`: Type of model to run (`lm` for text-only models, `multimodal` for multimodal models, `image-generation` for image generation models, `embeddings` for embeddings models). Default: `lm`
-- `--config-name`: Flux model configuration to use. Only used for `image-generation` model type. Available options: `flux-schnell`, `flux-dev`, `flux-krea-dev`, `flux-kontext`. Default: `flux-schnell`
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, `embeddings`, `image-generation`, and `image-edit` model types.
+- `--model-type`: Type of model to run:
+  - `lm` for text-only models
+  - `multimodal` for multimodal models (text, vision, audio)
+  - `image-generation` for image generation models
+  - `image-edit` for image editing models
+  - `embeddings` for embeddings models
+  - Default: `lm`
+- `--config-name`: Flux model configuration to use. Only used for `image-generation` and `image-edit` model types:
+  - For `image-generation`: `flux-schnell`, `flux-dev`, `flux-krea-dev`
+  - For `image-edit`: `flux-kontext`
+  - Default: `flux-schnell` for image-generation, `flux-kontext` for image-edit
 - `--quantize`: Quantization level for Flux models. Available options: `4`, `8`, `16`. Default: `8`
-- `--lora-paths`: Comma-separated paths to LoRA adapter files. Only used for Flux models (except `flux-kontext`).
+- `--lora-paths`: Comma-separated paths to LoRA adapter files. Only used for `image-generation` models (not supported for `flux-kontext`).
 - `--lora-scales`: Comma-separated scale factors for LoRA adapters. Must match the number of LoRA paths.
 - `--max-concurrency`: Maximum number of concurrent requests (default: 1)
 - `--queue-timeout`: Request timeout in seconds (default: 300)
 - `--queue-size`: Maximum queue size for pending requests (default: 100)
 - `--port`: Port to run the server on (default: 8000)
 - `--host`: Host to run the server on (default: 0.0.0.0)
+- `--disable-auto-resize`: Disable automatic model resizing. Only works for Vision Language Models.
 
 #### Example Configurations
 
-Text-only model:
+**Text-only model:**
 ```bash
 python -m app.main \
   --model-path mlx-community/gemma-3-4b-it-4bit \
@@ -232,9 +290,7 @@ python -m app.main \
   --queue-size 100
 ```
 
-> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
-
-Multimodal model:
+**Multimodal model:**
 ```bash
 python -m app.main \
   --model-path mlx-community/llava-phi-3-vision-4bit \
@@ -244,13 +300,13 @@ python -m app.main \
   --queue-size 100
 ```
 
-Image generation models:
+**Image generation models:**
 
-**Fast generation with Schnell:**
+*Fast generation with Schnell:*
 ```bash
 python -m app.main \
   --model-type image-generation \
-  --model-name schnell \
+  --model-path <path-to-local-flux-model> \
   --config-name flux-schnell \
   --quantize 8 \
   --max-concurrency 1 \
@@ -258,11 +314,11 @@ python -m app.main \
   --queue-size 100
 ```
 
-**High-quality generation with Dev:**
+*High-quality generation with Dev:*
 ```bash
 python -m app.main \
   --model-type image-generation \
-  --model-name dev \
+  --model-path <path-to-local-flux-model> \
   --config-name flux-dev \
   --quantize 8 \
   --max-concurrency 1 \
@@ -270,11 +326,11 @@ python -m app.main \
   --queue-size 100
 ```
 
-**Premium quality with Krea-Dev:**
+*Premium quality with Krea-Dev:*
 ```bash
 python -m app.main \
   --model-type image-generation \
-  --model-name dev \
+  --model-path <path-to-local-flux-model> \
   --config-name flux-krea-dev \
   --quantize 8 \
   --max-concurrency 1 \
@@ -282,11 +338,11 @@ python -m app.main \
   --queue-size 100
 ```
 
-**Context-aware generation with Kontext:**
+*Image editing with Kontext:*
 ```bash
 python -m app.main \
-  --model-type image-generation \
-  --model-name dev \
+  --model-type image-edit \
+  --model-path <path-to-local-flux-model> \
   --config-name flux-kontext \
   --quantize 8 \
   --max-concurrency 1 \
@@ -294,7 +350,7 @@ python -m app.main \
   --queue-size 100
 ```
 
-**With LoRA adapters:**
+*With LoRA adapters (image generation only):*
 ```bash
 python -m app.main \
   --model-type image-generation \
@@ -310,24 +366,31 @@ python -m app.main \
 
 ### CLI Usage
 
-CLI commands:
+The server provides a convenient CLI interface for easy startup and management:
+
+**Check version and help:**
 ```bash
 mlx-openai-server --version
 mlx-openai-server --help
 mlx-openai-server launch --help
 ```
 
-To launch the server:
+**Launch the server:**
 ```bash
 # For text-only or multimodal models
 mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --port 8000
 
 # For image generation models (Flux-series)
-mlx-openai-server launch --model-path <path-to-local-flux-model> --model-type image-generation --config-name <flux-schnell|flux-dev|flux-krea-dev|flux-kontext> --port 8000
+mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name <flux-schnell|flux-dev|flux-krea-dev> --port 8000
 
-# With LoRA adapters
-mlx-openai-server launch --model-path <path-to-local-flux-model> --model-type image-generation --config-name flux-dev --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" --lora-scales "0.8,0.6" --port 8000
+# For image editing models (Flux-series)
+mlx-openai-server launch --model-type image-edit --model-path <path-to-local-flux-model> --config-name flux-kontext --port 8000
+
+# With LoRA adapters (image generation only)
+mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name flux-dev --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" --lora-scales "0.8,0.6" --port 8000
 ```
+
+> **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
 
 ### Using the API
 
@@ -485,12 +548,84 @@ if response.status_code == 200:
 - `model`: Model identifier (defaults to "local-image-generation-model")
 - `size`: Image dimensions - "256x256", "512x512", or "1024x1024" (default: "1024x1024")
 - `negative_prompt`: What to avoid in the generated image (optional)
-- `steps`: Number of inference steps, 1-50 (default varies by config: 4 for Schnell, 25 for Dev, 28 for Krea-Dev/Kontext)
+- `steps`: Number of inference steps, 1-50 (default varies by config: 4 for Schnell, 25 for Dev, 28 for Krea-Dev)
 - `seed`: Random seed for reproducible generation (optional)
 - `priority`: Task priority - "low", "normal", "high" (default: "normal")
 - `async_mode`: Whether to process asynchronously (default: false)
 
 > **Note:** Image generation requires running the server with `--model-type image-generation`. The server uses MLX Flux-series models for high-quality image generation with configurable quality/speed trade-offs.
+
+#### Image Editing with Flux-Series Models
+```python
+import openai
+import base64
+from io import BytesIO
+from PIL import Image
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"
+)
+
+# Edit an existing image
+with open("images/china.png", "rb") as image_file:
+    result = client.images.edit(
+        image=image_file,
+        prompt="make it like a photo in 1800s",
+        model="flux-kontext-dev"
+    )
+
+# Display the edited image
+image_data = base64.b64decode(result.data[0].b64_json)
+image = Image.open(BytesIO(image_data))
+image.show()
+```
+
+#### Advanced Image Editing with Custom Parameters
+```python
+import requests
+
+# For more control, use direct API calls with form data
+with open("images/china.png", "rb") as image_file:
+    files = {"image": image_file}
+    data = {
+        "prompt": "make it like a photo in 1800s",
+        "model": "flux-kontext-dev",
+        "negative_prompt": "modern, digital, high contrast",
+        "guidance_scale": 2.5,
+        "steps": 4,
+        "seed": 42,
+        "size": "1024x1024",
+        "response_format": "b64_json"
+    }
+    
+    response = requests.post(
+        "http://localhost:8000/v1/images/edits",
+        files=files,
+        data=data,
+        headers={"Authorization": "Bearer fake-api-key"}
+    )
+
+if response.status_code == 200:
+    result = response.json()
+    # Handle the base64 image data
+    image_data = base64.b64decode(result['data'][0]['b64_json'])
+    image = Image.open(BytesIO(image_data))
+    image.show()
+```
+
+**Image Edit Parameters:**
+- `image`: The image file to edit (required, PNG, JPEG, or JPG format, max 10MB)
+- `prompt`: Text description of the desired edit (required, max 1000 characters)
+- `model`: Model identifier (defaults to "flux-kontext")
+- `negative_prompt`: What to avoid in the edited image (optional)
+- `guidance_scale`: Controls how closely the model follows the prompt (default: 2.5)
+- `steps`: Number of inference steps, 1-50 (default: 4)
+- `seed`: Random seed for reproducible editing (default: 42)
+- `size`: Output image dimensions - "256x256", "512x512", or "1024x1024" (optional)
+- `response_format`: Response format - "b64_json" (default: "b64_json")
+
+> **Note:** Image editing requires running the server with `--model-type image-edit`. The server uses MLX Flux-series models for high-quality image editing with configurable quality/speed trade-offs.
 
 #### Function Calling
 ```python
@@ -981,9 +1116,17 @@ The repository includes example notebooks to help you get started with different
   - Setting up connection to MLX Server for image generation
   - Basic image generation with default parameters
   - Advanced image generation with custom parameters (negative prompts, steps, seed)
-  - Working with different Flux configurations (schnell, dev, Krea-dev, kontext)
+  - Working with different Flux configurations (schnell, dev, Krea-dev)
   - Using LoRA adapters for fine-tuned generation
   - Optimizing performance with quantization settings
+
+- **image_edit.ipynb**: A comprehensive guide to image editing using MLX Flux-series models, including:
+  - Setting up connection to MLX Server for image editing
+  - Basic image editing with default parameters
+  - Advanced image editing with custom parameters (guidance scale, steps, seed)
+  - Working with the flux-kontext configuration for contextual editing
+  - Understanding the differences between generation and editing workflows
+  - Best practices for effective image editing prompts
 
 ## Large Models
 When using models that are large relative to your system's available RAM, performance may suffer. mlx-lm tries to improve speed by wiring the memory used by the model and its cache—this optimization is only available on macOS 15.0 or newer.

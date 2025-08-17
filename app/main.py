@@ -38,16 +38,16 @@ logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model.")
-    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "embeddings"], help="Model type")
+    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
-    parser.add_argument("--quantize", type=int, default=8, help="Quantization level for the model. Only used for Flux models.")
-    parser.add_argument("--config-name", type=str, default="flux-schnell", choices=["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"], help="Config name of the model. Only used for Flux models.")
-    parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Only used for Flux models. Multiple paths should be separated by commas.")
-    parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Only used for Flux models. Multiple scales should be separated by commas.")
+    parser.add_argument("--quantize", type=int, default=8, help="Quantization level for the model. Only used for image-generation and image-edit Flux models.")
+    parser.add_argument("--config-name", type=str, default=None, choices=["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"], help="Config name of the model. Only used for image-generation and image-edit Flux models.")
+    parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple paths should be separated by commas.")
+    parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple scales should be separated by commas.")
     parser.add_argument("--disable-auto-resize", action="store_true", help="Disable automatic model resizing. Only work for Vision Language Models.")
     
     args = parser.parse_args()
@@ -77,11 +77,13 @@ def create_lifespan(config_args):
                     disable_auto_resize=getattr(config_args, 'disable_auto_resize', False)
                 )
             elif config_args.model_type == "image-generation":
+                if not config_args.config_name in ["flux-schnell", "flux-dev", "flux-krea-dev"]:
+                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-schnell, flux-dev, and flux-krea-dev are supported for image generation.")
                 handler = MLXFluxHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency,
                     quantize=getattr(config_args, 'quantize', 8),
-                    config_name=getattr(config_args, 'config_name', 'flux-schnell'),
+                    config_name=config_args.config_name,
                     lora_paths=getattr(config_args, 'lora_paths', None),
                     lora_scales=getattr(config_args, 'lora_scales', None)
                 )
@@ -89,6 +91,17 @@ def create_lifespan(config_args):
                 handler = MLXEmbeddingsHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency
+                )
+            elif config_args.model_type == "image-edit":
+                if config_args.config_name != "flux-kontext":
+                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext is supported for image edit.")
+                handler = MLXFluxHandler(
+                    model_path=model_identifier,
+                    max_concurrency=config_args.max_concurrency,
+                    quantize=getattr(config_args, 'quantize', 8),
+                    config_name=config_args.config_name,
+                    lora_paths=getattr(config_args, 'lora_paths', None),
+                    lora_scales=getattr(config_args, 'lora_scales', None)
                 )
             else:
                 handler = MLXLMHandler(

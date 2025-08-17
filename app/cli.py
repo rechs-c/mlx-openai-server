@@ -103,7 +103,7 @@ def print_startup_banner(args):
     logger.info(f"⚡ Max Concurrency: {args.max_concurrency}")
     logger.info(f"⏱️ Queue Timeout: {args.queue_timeout} seconds")
     logger.info(f"📊 Queue Size: {args.queue_size}")
-    if args.model_type == "image-generation":
+    if args.model_type in ["image-generation", "image-edit"]:
         logger.info(f"🔮 Quantize: {args.quantize}")
         logger.info(f"🔮 Config Name: {args.config_name}")
         if args.lora_paths:
@@ -122,8 +122,8 @@ def print_startup_banner(args):
 @click.option(
     "--model-type",
     default="lm",
-    type=click.Choice(["lm", "multimodal", "image-generation", "embeddings"]),
-    help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation, embeddings: text embeddings)"
+    type=click.Choice(["lm", "multimodal", "image-generation", "image-edit", "embeddings"]),
+    help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation, image-edit: flux image edit, embeddings: text embeddings)"
 )
 @click.option(
     "--port", 
@@ -158,25 +158,25 @@ def print_startup_banner(args):
     "--quantize",
     default=8,
     type=int,
-    help="Quantization level for the model. Only used for Flux models."
+    help="Quantization level for the model. Only used for image-generation and image-edit Flux models."
 )
 @click.option(
     "--config-name",
-    default="flux-schnell",
+    default=None,
     type=click.Choice(["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"]),
-    help="Config name of the model. Only used for Flux models."
+    help="Config name of the model. Only used for image-generation and image-edit Flux models."
 )
 @click.option(
     "--lora-paths",
     default=None,
     type=str,
-    help="Path to the LoRA file(s). Only used for Flux models. Multiple paths should be separated by commas."
+    help="Path to the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple paths should be separated by commas."
 )
 @click.option(
     "--lora-scales",
     default=None,
     type=str,
-    help="Scale factor for the LoRA file(s). Only used for Flux models. Multiple scales should be separated by commas."
+    help="Scale factor for the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple scales should be separated by commas."
 )
 @click.option(
     "--disable-auto-resize",
@@ -186,12 +186,15 @@ def print_startup_banner(args):
 def launch(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
     """Launch the MLX server with the specified model."""
     try:
-        # Validate that config name is only used with image-generation model type
-        if config_name and model_type != "image-generation":
-            logger.warning(f"Config name parameter '{config_name}' provided but model type is '{model_type}'. Config name is only used with image-generation models.")
+        # Validate that config name is only used with image-generation and image-edit model types
+        if config_name and model_type not in ["image-generation", "image-edit"]:
+            logger.warning(f"Config name parameter '{config_name}' provided but model type is '{model_type}'. Config name is only used with image-generation and image-edit models.")
         elif model_type == "image-generation" and not config_name:
             logger.warning("Model type is 'image-generation' but no config name specified. Using default 'flux-schnell'.")
             config_name = "flux-schnell"
+        elif model_type == "image-edit" and not config_name:
+            logger.warning("Model type is 'image-edit' but no config name specified. Using default 'flux-kontext'.")
+            config_name = "flux-kontext"
         
         # Get optimized configuration
         args = get_server_config(model_path, model_type, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)

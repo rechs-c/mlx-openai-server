@@ -1,5 +1,8 @@
 import asyncio
 import base64
+import io
+import os
+import tempfile
 import time
 import uuid
 import gc
@@ -7,14 +10,13 @@ from io import BytesIO
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
-from loguru import logger
 from PIL import Image
-
-from app.models.mflux import FluxModel
+from loguru import logger
+from fastapi import HTTPException, UploadFile
 from app.core.queue import RequestQueue
+from app.models.mflux import FluxModel
 from app.utils.errors import create_error_response
-from app.schemas.openai import ImageGenerationRequest, ImageGenerationResponse, ImageData
+from app.schemas.openai import ImageSize, ImageGenerationRequest, ImageGenerationResponse, ImageEditRequest, ImageEditResponse, ImageData
 
 
 class MLXFluxHandler:
@@ -85,6 +87,12 @@ class MLXFluxHandler:
         )
         await self.request_queue.start(self._process_request)
         logger.info("Initialized MLXFluxHandler and started request queue")
+        logger.info(f"Queue configuration: {queue_config}")
+
+    def _parse_image_size(self, size: ImageSize):
+        """Parse image size string to width, height tuple"""
+        width, height = map(int, size.value.split('x'))
+        return width, height
 
     async def generate_image(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
         """
@@ -100,15 +108,17 @@ class MLXFluxHandler:
         request_id = f"image-{uuid.uuid4()}"
         
         try:
+            width, height = 1024, 1024
+            if request.size:
+                width, height = self._parse_image_size(request.size)
             # Prepare request data
             request_data = {
                 "prompt": request.prompt,
                 "negative_prompt": request.negative_prompt,
                 "steps": request.steps,
                 "seed": request.seed,
-                "size": request.size,
-                "priority": request.priority,
-                "async_mode": request.async_mode
+                "width": width,
+                "height": height
             }
             
             # Submit to the request queue
@@ -142,6 +152,148 @@ class MLXFluxHandler:
             )
             raise HTTPException(status_code=500, detail=content)
 
+    async def edit_image(self, image_edit_request: ImageEditRequest) -> ImageEditResponse:
+        """
+        Edit an image based on the request parameters.
+        
+        Args:
+            image_edit_request: Request parameters for image editing
+            
+        Returns:
+            ImageEditResponse: Response containing the edited image data
+            
+        Raises:
+            HTTPException: For validation errors, queue capacity issues, or processing failures
+        """
+        image = image_edit_request.image
+        # Validate image file type and size
+        if not image.content_type or image.content_type not in ["image/png", "image/jpeg", "image/jpg"]:
+            raise HTTPException(
+                status_code=400, 
+                detail="Image must be a PNG, JPEG, or JPG file"
+            )
+        
+        # Check file size (limit to 10MB)
+        if hasattr(image, 'size') and image.size and image.size > 10 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail="Image file size must be less than 10MB"
+            )
+        
+        # Validate request parameters
+        if not image_edit_request.prompt or not image_edit_request.prompt.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Prompt cannot be empty"
+            )
+
+        request_id = f"image-edit-{uuid.uuid4()}"
+        temp_file_path = None
+        
+        try:
+            # Read and validate image data
+            image_data = await image.read()
+            if not image_data:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Empty image file received"
+                )
+            
+            # Load and process image using proper utility function
+            try:
+                input_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+            except Exception as img_error:
+                logger.error(f"Failed to process image: {str(img_error)}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid or corrupted image file"
+                )
+
+            width, height = input_image.size
+            if image_edit_request.size is not None:
+                width, height = self._parse_image_size(image_edit_request.size)
+
+            # Create temporary file with proper cleanup handling
+            try:
+                temp_file = tempfile.NamedTemporaryFile(
+                    delete=False, 
+                    suffix=".png",
+                    prefix=f"edit_{request_id}_"
+                )
+                temp_file_path = temp_file.name
+                input_image.save(temp_file_path, format="PNG")
+                temp_file.close()
+            except Exception as temp_error:
+                logger.error(f"Failed to create temporary file: {str(temp_error)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to process image for editing"
+                )
+
+            # Prepare request data with all necessary parameters
+            request_data = {
+                "image_path": temp_file_path,
+                "prompt": image_edit_request.prompt.strip(),
+                "steps": image_edit_request.steps,
+                "seed": image_edit_request.seed,                
+                "negative_prompt": image_edit_request.negative_prompt,
+                "width": width,
+                "height": height,
+                "guidance": image_edit_request.guidance_scale,
+            }
+            
+            # Submit to the request queue
+            image_result = await self.request_queue.submit(request_id, request_data)
+            
+            # resize image to original size
+            image_result = image_result.resize((width, height))
+
+            # Convert PIL Image to base64
+            image_data_b64 = self._image_to_base64(image_result)
+            
+            # Create response
+            response = ImageEditResponse(
+                created=int(time.time()),
+                data=[ImageData(b64_json=image_data_b64)]
+            )
+            
+            logger.info(f"Successfully processed image edit request {request_id}")
+            return response
+
+        except asyncio.QueueFull:
+            logger.error(f"Queue at capacity for image edit request {request_id}")
+            content = create_error_response(
+                "Too many requests. Service is at capacity.", 
+                "rate_limit_exceeded", 
+                HTTPStatus.TOO_MANY_REQUESTS
+            )
+            raise HTTPException(status_code=429, detail=content)
+            
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in image edit for request {request_id}: {str(e)}")
+            content = create_error_response(
+                f"Failed to edit image: {str(e)}", 
+                "server_error", 
+                HTTPStatus.INTERNAL_SERVER_ERROR
+            )
+            raise HTTPException(status_code=500, detail=content)
+            
+        finally:
+            # Ensure cleanup of temporary file
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                    logger.debug(f"Cleaned up temporary file: {temp_file_path}")
+                except OSError as cleanup_error:
+                    logger.warning(f"Failed to cleanup temporary file {temp_file_path}: {str(cleanup_error)}")
+            
+            # Force garbage collection to free memory
+            gc.collect()
+        
     def _image_to_base64(self, image: Image.Image) -> str:
         """
         Convert PIL Image to base64 string.
@@ -174,27 +326,43 @@ class MLXFluxHandler:
             negative_prompt = request_data.get("negative_prompt")
             steps = request_data.get("steps", 4)
             seed = request_data.get("seed", 42)
-            size = request_data.get("size", "1024x1024")
-            
-            # Parse size string to width and height
-            if isinstance(size, str) and 'x' in size:
-                width, height = map(int, size.split('x'))
-            else:
-                width, height = 1024, 1024
-            
+            width = request_data.get("width", 1024)
+            height = request_data.get("height", 1024)
+            image_path = request_data.get("image_path")  # For image editing
+            guidance = request_data.get("guidance_scale", 2.5)
+    
             # Prepare model parameters
             model_params = {
                 "num_inference_steps": steps,
                 "width": width,
                 "height": height,
+                "guidance": guidance,
             }
             
             # Add negative prompt if provided
             if negative_prompt:
                 model_params["negative_prompt"] = negative_prompt
             
+            # Add image path for image editing if provided
+            if image_path:
+                model_params["image_path"] = image_path
+                logger.info(f"Processing image edit with prompt: {prompt[:50]}... and image: {image_path}")
+            else:
+                logger.info(f"Generating image with prompt: {prompt[:50]}...")
+            
+            # Log all model parameters
+            logger.info(f"Model inference configurations:")
+            logger.info(f"  - Prompt: {prompt[:100]}...")
+            logger.info(f"  - Negative prompt: {negative_prompt}")
+            logger.info(f"  - Steps: {steps}")
+            logger.info(f"  - Seed: {seed}")
+            logger.info(f"  - Width: {width}")
+            logger.info(f"  - Height: {height}")
+            logger.info(f"  - Guidance scale: {guidance}")
+            logger.info(f"  - Image path: {image_path}")
+            logger.info(f"  - Model params: {model_params}")
+            
             # Generate image
-            logger.info(f"Generating image with prompt: {prompt[:50]}...")
             image = self.model(
                 prompt=prompt,
                 seed=seed,
