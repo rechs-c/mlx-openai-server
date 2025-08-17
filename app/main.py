@@ -38,7 +38,7 @@ logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model.")
-    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "embeddings"], help="Model type")
+    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings"], help="Model type")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")

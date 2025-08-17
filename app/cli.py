@@ -122,7 +122,7 @@ def print_startup_banner(args):
 @click.option(
     "--model-type",
     default="lm",
-    type=click.Choice(["lm", "multimodal", "image-generation", "embeddings"]),
+    type=click.Choice(["lm", "multimodal", "image-generation", "image-edit", "embeddings"]),
     help="Type of model to run (lm: text-only, multimodal: text+vision+audio, image-generation: flux image generation, embeddings: text embeddings)"
 )
 @click.option(
