@@ -39,6 +39,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="OAI-compatible proxy")
     parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model.")
     parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings"], help="Model type")
+    parser.add_argument("--context-length", type=int, default=None, help="Context length for language models.")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
@@ -73,6 +74,7 @@ def create_lifespan(config_args):
             if config_args.model_type == "multimodal":
                 handler = MLXVLMHandler(
                     model_path=model_identifier,
+                    context_length=getattr(config_args, 'context_length', None),
                     max_concurrency=config_args.max_concurrency,
                     disable_auto_resize=getattr(config_args, 'disable_auto_resize', False)
                 )
@@ -106,6 +108,7 @@ def create_lifespan(config_args):
             else:
                 handler = MLXLMHandler(
                     model_path=model_identifier,
+                    context_length=getattr(config_args, 'context_length', None),
                     max_concurrency=config_args.max_concurrency
                 )       
             # Initialize queue
