@@ -10,7 +10,45 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ---
 
+## Community Support & Stars
+
+We're grateful for the amazing community support this project has received! If you find this project helpful, please consider:
+
+### ⭐ Star the Repository
+If this project has been useful to you, please give it a star on GitHub! Your stars help:
+- Increase visibility and discoverability
+- Motivate continued development and improvements
+- Help other developers find this useful tool
+
+[![GitHub stars](https://img.shields.io/github/stars/cubist38/mlx-openai-server?style=social)](https://github.com/cubist38/mlx-openai-server)
+
+### 🤝 Community Contributions
+We welcome contributions from the community! Here are some ways you can help:
+
+- **Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce
+- **Feature Requests**: Have an idea for a new feature? Let us know!
+- **Documentation**: Help improve our docs, examples, or tutorials
+- **Code Contributions**: Submit pull requests for bug fixes or new features
+- **Community Support**: Help other users in discussions and issues
+
+### 📢 Spread the Word
+If you're using this project in your work or research, we'd love to hear about it! Consider:
+- Sharing your use cases and success stories
+- Mentioning us in your projects, papers, or presentations
+- Writing blog posts or tutorials about your experience
+- Contributing to our example notebooks
+
+### 💬 Join the Discussion
+- **GitHub Discussions**: Share ideas, ask questions, and connect with other users
+- **Issues**: Report bugs, request features, or ask for help
+- **Community Examples**: Share your own examples and use cases
+
+Your support and contributions make this project better for everyone in the MLX and local AI community!
+
+---
+
 ## Table of Contents
+- [Community Support & Stars](#community-support--stars)
 - [Key Features](#key-features)
 - [Demo](#demo)
 - [OpenAI Compatibility](#openai-compatibility)
