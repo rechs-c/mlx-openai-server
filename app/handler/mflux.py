@@ -87,6 +87,7 @@ class MLXFluxHandler:
         )
         await self.request_queue.start(self._process_request)
         logger.info("Initialized MLXFluxHandler and started request queue")
+        logger.info(f"Queue configuration: {queue_config}")
 
     def _parse_image_size(self, size: ImageSize):
         """Parse image size string to width, height tuple"""
@@ -107,8 +108,9 @@ class MLXFluxHandler:
         request_id = f"image-{uuid.uuid4()}"
         
         try:
-
-            width, height = self._parse_image_size(request.size)
+            width, height = 1024, 1024
+            if request.size:
+                width, height = self._parse_image_size(request.size)
             # Prepare request data
             request_data = {
                 "prompt": request.prompt,
@@ -237,10 +239,9 @@ class MLXFluxHandler:
                 "negative_prompt": image_edit_request.negative_prompt,
                 "width": width,
                 "height": height,
-                "guidance_scale": getattr(image_edit_request, 'guidance_scale', 2.5),
+                "image_path": temp_file_path,
+                "guidance": image_edit_request.guidance_scale,
             }
-            
-            logger.info(f"Processing image edit request {request_id} with prompt: '{image_edit_request.prompt[:50]}...'")
             
             # Submit to the request queue
             image_result = await self.request_queue.submit(request_id, request_data)
@@ -326,27 +327,44 @@ class MLXFluxHandler:
             negative_prompt = request_data.get("negative_prompt")
             steps = request_data.get("steps", 4)
             seed = request_data.get("seed", 42)
-            size = request_data.get("size", "1024x1024")
-            
-            # Parse size string to width and height
-            if isinstance(size, str) and 'x' in size:
-                width, height = map(int, size.split('x'))
-            else:
-                width, height = 1024, 1024
-            
+            width = request_data.get("width", 1024)
+            height = request_data.get("height", 1024)
+            image_path = request_data.get("image_path")  # For image editing
+            guidance = request_data.get("guidance_scale", 2.5)
+    
             # Prepare model parameters
             model_params = {
                 "num_inference_steps": steps,
                 "width": width,
                 "height": height,
+                "seed": seed,
+                "guidance": guidance,
             }
             
             # Add negative prompt if provided
             if negative_prompt:
                 model_params["negative_prompt"] = negative_prompt
             
+            # Add image path for image editing if provided
+            if image_path:
+                model_params["image_path"] = image_path
+                logger.info(f"Processing image edit with prompt: {prompt[:50]}... and image: {image_path}")
+            else:
+                logger.info(f"Generating image with prompt: {prompt[:50]}...")
+            
+            # Log all model parameters
+            logger.info(f"Model inference configurations:")
+            logger.info(f"  - Prompt: {prompt[:100]}...")
+            logger.info(f"  - Negative prompt: {negative_prompt}")
+            logger.info(f"  - Steps: {steps}")
+            logger.info(f"  - Seed: {seed}")
+            logger.info(f"  - Width: {width}")
+            logger.info(f"  - Height: {height}")
+            logger.info(f"  - Guidance scale: {guidance_scale}")
+            logger.info(f"  - Image path: {image_path}")
+            logger.info(f"  - Model params: {model_params}")
+            
             # Generate image
-            logger.info(f"Generating image with prompt: {prompt[:50]}...")
             image = self.model(
                 prompt=prompt,
                 seed=seed,
