@@ -239,7 +239,6 @@ class MLXFluxHandler:
                 "negative_prompt": image_edit_request.negative_prompt,
                 "width": width,
                 "height": height,
-                "image_path": temp_file_path,
                 "guidance": image_edit_request.guidance_scale,
             }
             
@@ -360,7 +359,7 @@ class MLXFluxHandler:
             logger.info(f"  - Seed: {seed}")
             logger.info(f"  - Width: {width}")
             logger.info(f"  - Height: {height}")
-            logger.info(f"  - Guidance scale: {guidance_scale}")
+            logger.info(f"  - Guidance scale: {guidance}")
             logger.info(f"  - Image path: {image_path}")
             logger.info(f"  - Model params: {model_params}")
             
