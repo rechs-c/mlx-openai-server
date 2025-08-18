@@ -117,6 +117,7 @@ class MLXFluxHandler:
                 "negative_prompt": request.negative_prompt,
                 "steps": request.steps,
                 "seed": request.seed,
+                "guidance": request.guidance_scale,
                 "width": width,
                 "height": height
             }
