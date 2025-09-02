@@ -332,10 +332,8 @@ class MLXLMHandler:
                             text_parts.append(item["text"])
                     content = "\n".join(text_parts) if text_parts else ""
                 
-                chat_messages.append({
-                    "role": message.role,
-                    "content": content
-                })
+                message.content = content
+                chat_messages.append(message.model_dump())
             
             return chat_messages, request_dict
         
