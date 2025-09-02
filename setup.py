@@ -13,8 +13,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.3.2",
-        "mlx-lm==0.26.3",
+        "mlx-vlm==0.3.3",
+        "mlx-lm==0.27.0",
         "mlx-embeddings==0.0.3",
         "mflux==0.9.6",
         "fastapi==0.115.14",
