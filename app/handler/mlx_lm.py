@@ -319,8 +319,11 @@ class MLXLMHandler:
                 if response_format.get("type") == "json_schema":
                     request_dict["schema"] = response_format.get("json_schema", None).get("schema", None)
             
-            # Format chat messages
+            # Format chat messages and merge system messages into index 0
             chat_messages = []
+            system_messages = []
+            non_system_messages = []
+            
             for message in request.messages:
                 # Handle content that might be a list of dictionaries (multimodal format)
                 content = message.content
@@ -333,8 +336,28 @@ class MLXLMHandler:
                     content = "\n".join(text_parts) if text_parts else ""
                 
                 message.content = content
-                chat_messages.append(message.model_dump())
+                message_dict = message.model_dump()
+                
+                # Separate system messages from other messages
+                if message.role == "system":
+                    system_messages.append(message_dict)
+                else:
+                    non_system_messages.append(message_dict)
             
+            # If there are system messages, merge them into a single system message at index 0
+            if system_messages:
+                # Combine all system message contents
+                combined_system_content = "\n\n".join([msg["content"] for msg in system_messages if msg.get("content")])
+                
+                # Create merged system message using the first system message as template
+                merged_system_message = system_messages[0].copy()
+                merged_system_message["content"] = combined_system_content
+                
+                # Add merged system message at index 0
+                chat_messages.append(merged_system_message)
+            
+            # Add all non-system messages after the merged system message
+            chat_messages.extend(non_system_messages)
             return chat_messages, request_dict
         
         except Exception as e:
