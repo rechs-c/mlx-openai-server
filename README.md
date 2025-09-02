@@ -59,6 +59,24 @@ Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the ser
   </a>
 </p>
 
+### 🧠 **NEW: GPT-OSS-20B (MXFP4-Q8) Integration with Opencode**
+
+We're excited to announce our latest integration demo featuring **GPT-OSS-20B (MXFP4-Q8)** deployed with mlx-openai-server and integrated into **Opencode** to power advanced coding tasks! 
+
+This demonstration showcases:
+- **Large Language Model Deployment**: Running GPT-OSS-20B locally with MLX optimization
+- **Advanced Coding Capabilities**: Leveraging the 20B parameter model for complex programming tasks
+- **Seamless Integration**: Drop-in replacement for OpenAI API in Opencode workflows
+- **Performance Optimization**: MXFP4-Q8 quantization for optimal speed and memory usage
+
+<p align="center">
+  <a href="https://youtu.be/MTmR_mPSs6k">
+    <img src="https://img.youtube.com/vi/MTmR_mPSs6k/0.jpg" alt="GPT-OSS-20B Integration Demo" width="600">
+  </a>
+</p>
+
+**Watch the full demo**: [GPT-OSS-20B + Opencode Integration](https://youtu.be/MTmR_mPSs6k)
+
 ---
 
 ## OpenAI Compatibility
@@ -1405,7 +1423,7 @@ Need help with MLX OpenAI Server? We're here to support you! Here are the best w
 1. **Check the documentation** - This README and example notebooks
 2. **Search existing issues** - Your question might already be answered
 3. **Review the examples** - Check the `examples/` directory for use cases
-4. **Watch the demos** - Our [setup video](https://youtu.be/D9a3AZSj6v8) and [RAG demo](https://youtu.be/ANUEZkmR-0s)
+4. **Watch the demos** - Our [setup video](https://youtu.be/D9a3AZSj6v8), [RAG demo](https://youtu.be/ANUEZkmR-0s), and [GPT-OSS-20B + Opencode integration](https://youtu.be/MTmR_mPSs6k)
 
 #### 🐛 Reporting Issues
 - **GitHub Issues**: [Create a new issue](https://github.com/cubist38/mlx-openai-server/issues/new) with:
@@ -1441,7 +1459,7 @@ Need help with MLX OpenAI Server? We're here to support you! Here are the best w
 - **MLX Documentation**: [ml-explore/mlx](https://github.com/ml-explore/mlx)
 - **MLX Models**: [mlx-community](https://huggingface.co/mlx-community)
 - **Example Notebooks**: Check the `examples/` directory
-- **Video Tutorials**: Watch our setup and demo videos
+- **Video Tutorials**: Watch our setup, demo, and integration videos
 
 ### ⏱️ Response Times
 - **Bug Reports**: We aim to respond within 24-48 hours
