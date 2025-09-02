@@ -324,9 +324,11 @@ class MLXLMHandler:
             system_messages = []
             non_system_messages = []
             
-            for message in request.messages:
+            for message in request_dict.get("messages", []):
                 # Handle content that might be a list of dictionaries (multimodal format)
-                content = message.content
+                content = message.get("content", None)
+                if content is None:
+                    continue
                 if isinstance(content, list):
                     # For LM models, extract only text content and concatenate
                     text_parts = []
@@ -335,14 +337,12 @@ class MLXLMHandler:
                             text_parts.append(item["text"])
                     content = "\n".join(text_parts) if text_parts else ""
                 
-                message.content = content
-                message_dict = message.model_dump()
-                
+                message["content"] = content                
                 # Separate system messages from other messages
-                if message.role == "system":
-                    system_messages.append(message_dict)
+                if message.get("role") == "system":
+                    system_messages.append(message)
                 else:
-                    non_system_messages.append(message_dict)
+                    non_system_messages.append(message)
             
             # If there are system messages, merge them into a single system message at index 0
             if system_messages:
