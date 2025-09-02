@@ -74,7 +74,7 @@ def create_lifespan(config_args):
                 )
             elif config_args.model_type == "image-generation":
                 if not MFLUX_AVAILABLE:
-                    raise ValueError("Image generation requires mflux. Install with: pip install mlx-openai-server[flux]")
+                    raise ValueError("Image generation requires mflux. Install with: pip install git+https://github.com/cubist38/mflux.git")
                 if not config_args.config_name in ["flux-schnell", "flux-dev", "flux-krea-dev"]:
                     raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-schnell, flux-dev, and flux-krea-dev are supported for image generation.")
                 handler = MLXFluxHandler(
@@ -92,7 +92,7 @@ def create_lifespan(config_args):
                 )
             elif config_args.model_type == "image-edit":
                 if not MFLUX_AVAILABLE:
-                    raise ValueError("Image editing requires mflux. Install with: pip install mlx-openai-server[flux]")
+                    raise ValueError("Image editing requires mflux. Install with: pip install git+https://github.com/cubist38/mflux.git")
                 if config_args.config_name != "flux-kontext-dev":
                     raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext-dev is supported for image edit.")
                 handler = MLXFluxHandler(
