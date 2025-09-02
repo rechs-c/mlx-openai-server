@@ -78,13 +78,13 @@ The server supports five types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
 2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
-3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-series image generation models with enhanced configurations ⚠️ *Requires `[flux]` extra*
-4. **Image editing models** (`--model-type image-edit`) - Uses the `mflux` library for Flux-series image editing models ⚠️ *Requires `[flux]` extra*
+3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-series image generation models with enhanced configurations ⚠️ *Requires manual installation of `mflux`*
+4. **Image editing models** (`--model-type image-edit`) - Uses the `mflux` library for Flux-series image editing models ⚠️ *Requires manual installation of `mflux`*
 5. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
 
 ### Flux-Series Image Models
 
-> **⚠️ Note:** Image generation and editing capabilities require installing the `[flux]` extra: `pip install mlx-openai-server[flux]`
+> **⚠️ Note:** Image generation and editing capabilities require manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`
 
 The server supports multiple Flux model configurations for advanced image generation and editing:
 
@@ -138,24 +138,19 @@ Follow these steps to set up the MLX-powered server:
 
 3. Install the package:
     ```bash
-    # Option 1: Install from PyPI (base installation)
+    # Option 1: Install from PyPI
     pip install mlx-openai-server
-    
-    # Option 1a: Install from PyPI with image generation support
-    pip install mlx-openai-server[flux]
 
-    # Option 2: Install directly from GitHub (base installation)
+    # Option 2: Install directly from GitHub
     pip install git+https://github.com/cubist38/mlx-openai-server.git
-    
-    # Option 2a: Install directly from GitHub with image generation support
-    pip install "git+https://github.com/cubist38/mlx-openai-server.git#egg=mlx-openai-server[flux]"
     
     # Option 3: Clone and install in development mode
     git clone https://github.com/cubist38/mlx-openai-server.git
     cd mlx-openai-server
-    pip install -e .  # Base installation
-    # OR
-    pip install -e ".[flux]"  # With image generation support
+    pip install -e .
+    
+    # Optional: For image generation/editing support, also install mflux
+    pip install git+https://github.com/cubist38/mflux.git
     ```
 
 ### Using Conda (Recommended)
@@ -180,24 +175,19 @@ For better environment management and to avoid architecture issues, we recommend
 
 3. **Install the package**:
     ```bash
-    # Option 1: Install from PyPI (base installation)
+    # Option 1: Install from PyPI
     pip install mlx-openai-server
-    
-    # Option 1a: Install from PyPI with image generation support
-    pip install mlx-openai-server[flux]
 
-    # Option 2: Install directly from GitHub (base installation)
+    # Option 2: Install directly from GitHub
     pip install git+https://github.com/cubist38/mlx-openai-server.git
-    
-    # Option 2a: Install directly from GitHub with image generation support
-    pip install "git+https://github.com/cubist38/mlx-openai-server.git#egg=mlx-openai-server[flux]"
     
     # Option 3: Clone and install in development mode
     git clone https://github.com/cubist38/mlx-openai-server.git
     cd mlx-openai-server
-    pip install -e .  # Base installation
-    # OR
-    pip install -e ".[flux]"  # With image generation support
+    pip install -e .
+    
+    # Optional: For image generation/editing support, also install mflux
+    pip install git+https://github.com/cubist38/mflux.git
     ```
 
 ### Optional Dependencies
@@ -215,16 +205,23 @@ pip install mlx-openai-server
 - All core API endpoints and functionality
 
 #### Image Generation & Editing Support
+For image generation and editing capabilities, you need to install `mflux` manually:
+
 ```bash
-pip install mlx-openai-server[flux]
+# First install the base server
+pip install mlx-openai-server
+
+# Then install mflux for image generation/editing support
+pip install git+https://github.com/cubist38/mflux.git
 ```
-**Additional features:**
+
+**Additional features with mflux:**
 - Image generation models (`--model-type image-generation`)
 - Image editing models (`--model-type image-edit`)
 - MLX Flux-series model support
 - LoRA adapter support for fine-tuned generation
 
-> **Note:** If you try to use image generation or editing without the `[flux]` extra installed, you'll receive a clear error message directing you to install it.
+> **Note:** If you try to use image generation or editing without `mflux` installed, you'll receive a clear error message directing you to install it manually.
 
 ### Troubleshooting
 **Issue:** My OS and Python versions meet the requirements, but `pip` cannot find a matching distribution.
@@ -552,7 +549,7 @@ print(response.choices[0].message.content)
 
 #### Advanced Image Generation with Flux-Series Models
 
-> **⚠️ Note:** Image generation requires installing the `[flux]` extra: `pip install mlx-openai-server[flux]`
+> **⚠️ Note:** Image generation requires manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`
 
 ```python
 import openai
@@ -618,11 +615,11 @@ if response.status_code == 200:
 - `priority`: Task priority - "low", "normal", "high" (default: "normal")
 - `async_mode`: Whether to process asynchronously (default: false)
 
-> **Note:** Image generation requires running the server with `--model-type image-generation` and installing the `[flux]` extra: `pip install mlx-openai-server[flux]`. The server uses MLX Flux-series models for high-quality image generation with configurable quality/speed trade-offs.
+> **Note:** Image generation requires running the server with `--model-type image-generation` and manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`. The server uses MLX Flux-series models for high-quality image generation with configurable quality/speed trade-offs.
 
 #### Image Editing with Flux-Series Models
 
-> **⚠️ Note:** Image editing requires installing the `[flux]` extra: `pip install mlx-openai-server[flux]`
+> **⚠️ Note:** Image editing requires manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`
 
 ```python
 import openai
@@ -693,7 +690,7 @@ if response.status_code == 200:
 - `size`: Output image dimensions - "256x256", "512x512", or "1024x1024" (optional)
 - `response_format`: Response format - "b64_json" (default: "b64_json")
 
-> **Note:** Image editing requires running the server with `--model-type image-edit` and installing the `[flux]` extra: `pip install mlx-openai-server[flux]`. The server uses MLX Flux-series models for high-quality image editing with configurable quality/speed trade-offs.
+> **Note:** Image editing requires running the server with `--model-type image-edit` and manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`. The server uses MLX Flux-series models for high-quality image editing with configurable quality/speed trade-offs.
 
 #### Function Calling
 ```python
@@ -1187,7 +1184,7 @@ The repository includes example notebooks to help you get started with different
   - Working with different Flux configurations (schnell, dev, Krea-dev)
   - Using LoRA adapters for fine-tuned generation
   - Optimizing performance with quantization settings
-  > **⚠️ Note:** Requires `pip install mlx-openai-server[flux]`
+  > **⚠️ Note:** Requires manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`
 
 - **image_edit.ipynb**: A comprehensive guide to image editing using MLX Flux-series models, including:
   - Setting up connection to MLX Server for image editing
@@ -1196,7 +1193,7 @@ The repository includes example notebooks to help you get started with different
   - Working with the flux-kontext configuration for contextual editing
   - Understanding the differences between generation and editing workflows
   - Best practices for effective image editing prompts
-  > **⚠️ Note:** Requires `pip install mlx-openai-server[flux]`
+  > **⚠️ Note:** Requires manual installation of `mflux`: `pip install git+https://github.com/cubist38/mflux.git`
 
 ## Community & Support
 

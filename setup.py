@@ -26,9 +26,6 @@ setup(
         "python-multipart==0.0.20"
     ],
     extras_require={
-        "flux": [
-            "mflux @ git+https://github.com/cubist38/mflux.git",
-        ],
         "dev": [
             "pytest",
             "black",
