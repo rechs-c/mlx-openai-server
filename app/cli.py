@@ -1,8 +1,8 @@
+import sys
 import asyncio
 import click
 import uvicorn
 from loguru import logger
-import sys
 from functools import lru_cache
 from app.version import __version__
 from app.main import setup_server
@@ -121,7 +121,7 @@ def print_startup_banner(args):
 @cli.command()
 @click.option(
     "--model-path", 
-    help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model."
+    help="Path to the model (required for lm, multimodal, embeddings, image-generation, image-edit model types). With `image-generation` or `image-edit` model types, it should be the local path to the model."
 )
 @click.option(
     "--model-type",
@@ -133,7 +133,7 @@ def print_startup_banner(args):
     "--context-length",
     default=None,
     type=int,
-    help="Context length for language models."
+    help="Context length for language models. Only works with `lm` or `multimodal` model types."
 )
 @click.option(
     "--port", 
@@ -173,20 +173,20 @@ def print_startup_banner(args):
 @click.option(
     "--config-name",
     default=None,
-    type=click.Choice(["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"]),
+    type=click.Choice(["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext-dev"]),
     help="Config name of the model. Only used for image-generation and image-edit Flux models."
 )
 @click.option(
     "--lora-paths",
     default=None,
     type=str,
-    help="Path to the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple paths should be separated by commas."
+    help="Path to the LoRA file(s). Multiple paths should be separated by commas."
 )
 @click.option(
     "--lora-scales",
     default=None,
     type=str,
-    help="Scale factor for the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple scales should be separated by commas."
+    help="Scale factor for the LoRA file(s). Multiple scales should be separated by commas."
 )
 @click.option(
     "--disable-auto-resize",
@@ -203,8 +203,8 @@ def launch(model_path, model_type, context_length, port, host, max_concurrency, 
             logger.warning("Model type is 'image-generation' but no config name specified. Using default 'flux-schnell'.")
             config_name = "flux-schnell"
         elif model_type == "image-edit" and not config_name:
-            logger.warning("Model type is 'image-edit' but no config name specified. Using default 'flux-kontext'.")
-            config_name = "flux-kontext"
+            logger.warning("Model type is 'image-edit' but no config name specified. Using default 'flux-kontext-dev'.")
+            config_name = "flux-kontext-dev"
         
         # Get optimized configuration
         args = get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)

@@ -10,19 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+import mlx.core as mx
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler
 from app.handler.mflux import MLXFluxHandler
 from app.handler.mlx_embeddings import MLXEmbeddingsHandler 
 from app.api.endpoints import router
 from app.version import __version__
-
-# Try to import MLX for memory management
-try:
-    import mlx.core as mx
-    MLX_AVAILABLE = True
-except ImportError:
-    MLX_AVAILABLE = False
 
 # Configure loguru
 logger.remove()  # Remove default handler
@@ -36,19 +30,19 @@ logger.add(
 logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="OAI-compatible proxy")
-    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, and embeddings model types). With flux models, it should be the local path to the model.")
+    parser = argparse.ArgumentParser(description="MLX OpenAI Compatible Server")
+    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, image-generation, image-edit, embeddings model types). With `image-generation` or `image-edit` model types, it should be the local path to the model.")
     parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings"], help="Model type")
-    parser.add_argument("--context-length", type=int, default=None, help="Context length for language models.")
+    parser.add_argument("--context-length", type=int, default=None, help="Context length for language models. Only works with `lm` or `multimodal` model types.")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--max-concurrency", type=int, default=1, help="Maximum number of concurrent requests")
     parser.add_argument("--queue-timeout", type=int, default=300, help="Request timeout in seconds")
     parser.add_argument("--queue-size", type=int, default=100, help="Maximum queue size for pending requests")
     parser.add_argument("--quantize", type=int, default=8, help="Quantization level for the model. Only used for image-generation and image-edit Flux models.")
-    parser.add_argument("--config-name", type=str, default=None, choices=["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext"], help="Config name of the model. Only used for image-generation and image-edit Flux models.")
-    parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple paths should be separated by commas.")
-    parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Only used for image-generation Flux models (not supported for flux-kontext). Multiple scales should be separated by commas.")
+    parser.add_argument("--config-name", type=str, default=None, choices=["flux-schnell", "flux-dev", "flux-krea-dev", "flux-kontext-dev"], help="Config name of the model. Only used for image-generation and image-edit Flux models.")
+    parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Multiple paths should be separated by commas.")
+    parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Multiple scales should be separated by commas.")
     parser.add_argument("--disable-auto-resize", action="store_true", help="Disable automatic model resizing. Only work for Vision Language Models.")
     
     args = parser.parse_args()
@@ -95,8 +89,8 @@ def create_lifespan(config_args):
                     max_concurrency=config_args.max_concurrency
                 )
             elif config_args.model_type == "image-edit":
-                if config_args.config_name != "flux-kontext":
-                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext is supported for image edit.")
+                if config_args.config_name != "flux-kontext-dev":
+                    raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext-dev is supported for image edit.")
                 handler = MLXFluxHandler(
                     model_path=model_identifier,
                     max_concurrency=config_args.max_concurrency,
