@@ -13,8 +13,8 @@ from loguru import logger
 import mlx.core as mx
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler
-from app.handler.mflux import MLXFluxHandler
-from app.handler.mlx_embeddings import MLXEmbeddingsHandler 
+from app.handler.mlx_embeddings import MLXEmbeddingsHandler
+from app.handler import MLXFluxHandler, MFLUX_AVAILABLE 
 from app.api.endpoints import router
 from app.version import __version__
 
@@ -73,6 +73,8 @@ def create_lifespan(config_args):
                     disable_auto_resize=getattr(config_args, 'disable_auto_resize', False)
                 )
             elif config_args.model_type == "image-generation":
+                if not MFLUX_AVAILABLE:
+                    raise ValueError("Image generation requires mflux. Install with: pip install mlx-openai-server[flux]")
                 if not config_args.config_name in ["flux-schnell", "flux-dev", "flux-krea-dev"]:
                     raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-schnell, flux-dev, and flux-krea-dev are supported for image generation.")
                 handler = MLXFluxHandler(
@@ -89,6 +91,8 @@ def create_lifespan(config_args):
                     max_concurrency=config_args.max_concurrency
                 )
             elif config_args.model_type == "image-edit":
+                if not MFLUX_AVAILABLE:
+                    raise ValueError("Image editing requires mflux. Install with: pip install mlx-openai-server[flux]")
                 if config_args.config_name != "flux-kontext-dev":
                     raise ValueError(f"Invalid config name: {config_args.config_name}. Only flux-kontext-dev is supported for image edit.")
                 handler = MLXFluxHandler(

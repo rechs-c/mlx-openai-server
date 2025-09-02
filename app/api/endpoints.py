@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
 from app.handler.mlx_lm import MLXLMHandler
-from app.handler.mflux import MLXFluxHandler
+from app.handler import MLXFluxHandler, MFLUX_AVAILABLE
 from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
                                 ChatCompletionRequest, ChatCompletionResponse,
@@ -110,7 +110,7 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     # Check if the handler is an MLXFluxHandler
-    if not isinstance(handler, MLXFluxHandler):
+    if not MFLUX_AVAILABLE or not isinstance(handler, MLXFluxHandler):
         return JSONResponse(
             content=create_error_response(
                 "Image generation requests require an image generation model. Use --model-type image-generation.",
@@ -147,7 +147,7 @@ async def create_image_edit(
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     # Check if the handler is an MLXFluxHandler
-    if not isinstance(handler, MLXFluxHandler):
+    if not MFLUX_AVAILABLE or not isinstance(handler, MLXFluxHandler):
         return JSONResponse(
             content=create_error_response(
                 "Image editing requests require an image generation model. Use --model-type image-generation.",

@@ -16,7 +16,6 @@ setup(
         "mlx-vlm==0.3.3",
         "mlx-lm==0.27.0",
         "mlx-embeddings==0.0.3",
-        "mflux @ git+https://github.com/cubist38/mflux.git",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",
@@ -27,6 +26,9 @@ setup(
         "python-multipart==0.0.20"
     ],
     extras_require={
+        "flux": [
+            "mflux @ git+https://github.com/cubist38/mflux.git",
+        ],
         "dev": [
             "pytest",
             "black",
