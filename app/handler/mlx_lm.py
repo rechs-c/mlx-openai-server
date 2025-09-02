@@ -322,9 +322,19 @@ class MLXLMHandler:
             # Format chat messages
             chat_messages = []
             for message in request.messages:
+                # Handle content that might be a list of dictionaries (multimodal format)
+                content = message.content
+                if isinstance(content, list):
+                    # For LM models, extract only text content and concatenate
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
+                            text_parts.append(item["text"])
+                    content = "\n".join(text_parts) if text_parts else ""
+                
                 chat_messages.append({
                     "role": message.role,
-                    "content": message.content
+                    "content": content
                 })
             
             return chat_messages, request_dict
