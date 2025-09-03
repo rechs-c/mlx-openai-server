@@ -139,7 +139,7 @@ class BaseFluxModel(ABC):
             return True
         
         # Check if it's a valid model name (for downloading)
-        valid_model_names = ["flux-dev", "flux-schnell", "flux-kontext"]
+        valid_model_names = ["flux-dev", "flux-schnell", "flux-kontext-dev"]
         return self.model_path in valid_model_names
     
     @abstractmethod
@@ -306,14 +306,14 @@ class FluxModel:
         "flux-schnell": ModelConfiguration.schnell,
         "flux-dev": ModelConfiguration.dev,
         "flux-krea-dev": ModelConfiguration.krea_dev,
-        "flux-kontext": ModelConfiguration.kontext,
+        "flux-kontext-dev": ModelConfiguration.kontext,
     }
     
     _MODEL_CLASSES = {
         "flux-schnell": FluxStandardModel,
         "flux-dev": FluxStandardModel,
         "flux-krea-dev": FluxStandardModel,
-        "flux-kontext": FluxKontextModel,
+        "flux-kontext-dev": FluxKontextModel,
     }
     
     def __init__(self, model_path: str, config_name: str, quantize: int = 8, 
@@ -332,13 +332,13 @@ class FluxModel:
             raise InvalidConfigurationError(f"Invalid config name: {config_name}. Available options: {available_configs}")
         
         # Validate LoRA parameters for kontext model
-        if config_name == "flux-kontext" and (lora_paths is not None or lora_scales is not None):
+        if config_name == "flux-kontext-dev" and (lora_paths is not None or lora_scales is not None):
             raise InvalidConfigurationError("Flux Kontext model does not support LoRA adapters")
         
         try:
             # Create model configuration
             config_factory = self._MODEL_CONFIGS[config_name]
-            if config_name == "flux-kontext":
+            if config_name == "flux-kontext-dev":
                 self.config = config_factory(quantize=quantize)
             else:
                 self.config = config_factory(quantize=quantize, lora_paths=lora_paths, lora_scales=lora_scales)
