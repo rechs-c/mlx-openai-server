@@ -17,6 +17,7 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 - [Usage](#usage)
   - [Starting the Server](#starting-the-server)
   - [CLI Usage](#cli-usage)
+  - [Logging Configuration](#logging-configuration)
   - [Using the API](#using-the-api)
   - [Structured Outputs](#structured-outputs-with-json-schema)
 - [Request Queue System](#request-queue-system)
@@ -352,6 +353,9 @@ mlx-openai-server launch \
 - `--port`: Port to run the server on (default: 8000)
 - `--host`: Host to run the server on (default: 0.0.0.0)
 - `--disable-auto-resize`: Disable automatic model resizing. Only works for Vision Language Models.
+- `--log-file`: Path to log file. If not specified, logs will be written to 'logs/app.log' by default.
+- `--no-log-file`: Disable file logging entirely. Only console output will be shown.
+- `--log-level`: Set the logging level. Choices: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Default: `INFO`.
 
 #### Example Configurations
 
@@ -465,9 +469,64 @@ mlx-openai-server launch --model-type image-edit --model-path <path-to-local-flu
 
 # With LoRA adapters (image generation only)
 mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name flux-dev --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" --lora-scales "0.8,0.6" --port 8000
+
+# With custom logging configuration
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm --log-file /tmp/server.log --log-level DEBUG
+
+# Disable file logging (console only)
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm --no-log-file
+
+# Use default logging (logs/app.log, INFO level)
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm
 ```
 
 > **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
+
+### Logging Configuration
+
+The server provides flexible logging options to help you monitor and debug your MLX server:
+
+#### Logging Options
+
+- **`--log-file`**: Specify a custom path for log files
+  - Default: `logs/app.log`
+  - Example: `--log-file /tmp/my-server.log`
+
+- **`--no-log-file`**: Disable file logging entirely
+  - Only console output will be shown
+  - Useful for development or when you don't need persistent logs
+
+- **`--log-level`**: Control the verbosity of logging
+  - Choices: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+  - Default: `INFO`
+  - `DEBUG`: Most verbose, includes detailed debugging information
+  - `INFO`: Standard operational messages (default)
+  - `WARNING`: Important notices about potential issues
+  - `ERROR`: Error messages only
+  - `CRITICAL`: Only critical system errors
+
+#### Logging Examples
+
+```bash
+# Use default logging (logs/app.log, INFO level)
+mlx-openai-server launch --model-path <path-to-model> --model-type lm
+
+# Custom log file with debug level
+mlx-openai-server launch --model-path <path-to-model> --model-type lm --log-file /tmp/debug.log --log-level DEBUG
+
+# Console-only logging (no file output)
+mlx-openai-server launch --model-path <path-to-model> --model-type lm --no-log-file
+
+# High-level logging (errors only)
+mlx-openai-server launch --model-path <path-to-model> --model-type lm --log-level ERROR
+```
+
+#### Log File Features
+
+- **Automatic rotation**: Log files are automatically rotated when they reach 500 MB
+- **Retention**: Log files are kept for 10 days by default
+- **Formatted output**: Both console and file logs include timestamps, log levels, and structured formatting
+- **Colorized console**: Console output includes color coding for better readability
 
 ### Using the API
 

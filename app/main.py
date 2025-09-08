@@ -18,16 +18,34 @@ from app.handler import MLXFluxHandler, MFLUX_AVAILABLE
 from app.api.endpoints import router
 from app.version import __version__
 
-# Configure loguru
-logger.remove()  # Remove default handler
-logger.add(
-    "logs/app.log",
-    rotation="500 MB",
-    retention="10 days",
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-)
-logger.add(lambda msg: print(msg), level="INFO")  # Also print to console
+def configure_logging(log_file=None, no_log_file=False, log_level="INFO"):
+    """Configure loguru logging based on CLI parameters."""
+    logger.remove()  # Remove default handler
+    
+    # Add console handler
+    logger.add(
+        lambda msg: print(msg), 
+        level=log_level,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+               "<level>{level: <8}</level> | "
+               "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+               "✦ <level>{message}</level>",
+        colorize=True
+    )
+    
+    # Add file handler if not disabled
+    if not no_log_file:
+        file_path = log_file if log_file else "logs/app.log"
+        logger.add(
+            file_path,
+            rotation="500 MB",
+            retention="10 days",
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+        )
+
+# Default logging configuration (will be overridden by CLI args)
+configure_logging()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MLX OpenAI Compatible Server")
@@ -149,6 +167,13 @@ app = None
 
 async def setup_server(args) -> uvicorn.Config:
     global app
+    
+    # Configure logging based on CLI parameters
+    configure_logging(
+        log_file=getattr(args, 'log_file', None),
+        no_log_file=getattr(args, 'no_log_file', False),
+        log_level=getattr(args, 'log_level', 'INFO')
+    )
     
     # Create FastAPI app with the configured lifespan
     app = FastAPI(
