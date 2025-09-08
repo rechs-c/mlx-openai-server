@@ -9,7 +9,7 @@ from app.main import setup_server
 
 class Config:
     """Configuration container for server parameters."""
-    def __init__(self, model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, quantize=8, config_name=None, lora_paths=None, lora_scales=None):
+    def __init__(self, model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, disable_auto_resize=False, quantize=8, config_name=None, lora_paths=None, lora_scales=None, log_file=None, no_log_file=False, log_level="INFO"):
         self.model_path = model_path
         self.model_type = model_type
         self.context_length = context_length
@@ -21,6 +21,9 @@ class Config:
         self.disable_auto_resize = disable_auto_resize
         self.quantize = quantize
         self.config_name = config_name
+        self.log_file = log_file
+        self.no_log_file = no_log_file
+        self.log_level = log_level
         
         # Process comma-separated LoRA paths and scales
         if lora_paths:
@@ -41,22 +44,17 @@ class Config:
         return self.model_path
 
 
-# Configure Loguru once at module level
-def configure_logging():
-    """Set up optimized logging configuration."""
-    logger.remove()  # Remove default handler
-    logger.add(
-        sys.stderr, 
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-               "<level>{level: <8}</level> | "
-               "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-               "✦ <level>{message}</level>",
-        colorize=True,
-        level="INFO"
-    )
-
-# Apply logging configuration
-configure_logging()
+# Configure basic logging for CLI (will be overridden by main.py)
+logger.remove()  # Remove default handler
+logger.add(
+    sys.stderr, 
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+           "<level>{level: <8}</level> | "
+           "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+           "✦ <level>{message}</level>",
+    colorize=True,
+    level="INFO"
+)
 
 
 @click.group()
@@ -74,7 +72,7 @@ def cli():
 
 
 @lru_cache(maxsize=1)
-def get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
+def get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize, log_file, no_log_file, log_level):
     """Cache and return server configuration to avoid redundant processing."""
     return Config(
         model_path=model_path,
@@ -89,7 +87,10 @@ def get_server_config(model_path, model_type, context_length, port, host, max_co
         quantize=quantize,
         config_name=config_name,
         lora_paths=lora_paths,
-        lora_scales=lora_scales
+        lora_scales=lora_scales,
+        log_file=log_file,
+        no_log_file=no_log_file,
+        log_level=log_level
     )
 
 
@@ -116,6 +117,13 @@ def print_startup_banner(args):
             logger.info(f"🔮 LoRA Scales: {args.lora_scales}")
     if hasattr(args, 'disable_auto_resize') and args.disable_auto_resize and args.model_type == "multimodal":
         logger.info(f"🖼️ Auto-resize: Disabled")
+    logger.info(f"📝 Log Level: {args.log_level}")
+    if args.no_log_file:
+        logger.info(f"📝 File Logging: Disabled")
+    elif args.log_file:
+        logger.info(f"📝 Log File: {args.log_file}")
+    else:
+        logger.info(f"📝 Log File: logs/app.log (default)")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 @cli.command()
@@ -193,7 +201,24 @@ def print_startup_banner(args):
     is_flag=True,
     help="Disable automatic model resizing. Only work for Vision Language Models."
 )
-def launch(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize):
+@click.option(
+    "--log-file",
+    default=None,
+    type=str,
+    help="Path to log file. If not specified, logs will be written to 'logs/app.log' by default."
+)
+@click.option(
+    "--no-log-file",
+    is_flag=True,
+    help="Disable file logging entirely. Only console output will be shown."
+)
+@click.option(
+    "--log-level",
+    default="INFO",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    help="Set the logging level. Default is INFO."
+)
+def launch(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize, log_file, no_log_file, log_level):
     """Launch the MLX server with the specified model."""
     try:
         # Validate that config name is only used with image-generation and image-edit model types
@@ -207,7 +232,7 @@ def launch(model_path, model_type, context_length, port, host, max_concurrency, 
             config_name = "flux-kontext-dev"
         
         # Get optimized configuration
-        args = get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize)
+        args = get_server_config(model_path, model_type, context_length, port, host, max_concurrency, queue_timeout, queue_size, quantize, config_name, lora_paths, lora_scales, disable_auto_resize, log_file, no_log_file, log_level)
         
         # Display startup information
         print_startup_banner(args)
