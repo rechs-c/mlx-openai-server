@@ -14,7 +14,7 @@ setup(
     packages=find_packages(), 
     install_requires=[
         "mlx-vlm==0.3.3",
-        "mlx-lm==0.27.0",
+        "mlx-lm @ file:///var/ai/mlx-openai-server/mlx-lm",
         "mlx-embeddings==0.0.3",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",

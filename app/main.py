@@ -33,16 +33,16 @@ def configure_logging(log_file=None, no_log_file=False, log_level="INFO"):
         colorize=True
     )
     
-    # Add file handler if not disabled
-    if not no_log_file:
-        file_path = log_file if log_file else "logs/app.log"
-        logger.add(
-            file_path,
-            rotation="500 MB",
-            retention="10 days",
-            level=log_level,
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-        )
+    # # Add file handler if not disabled
+    # if not no_log_file:
+    #     file_path = log_file if log_file else "logs/app.log"
+    #     logger.add(
+    #         file_path,
+    #         rotation="500 MB",
+    #         retention="10 days",
+    #         level=log_level,
+    #         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+    #     )
 
 # Default logging configuration (will be overridden by CLI args)
 configure_logging()
