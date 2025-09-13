@@ -255,7 +255,7 @@ If the output is `i386` (on an M-series machine), you are using a non-native Pyt
 
 ### Starting the Server
 
-You can start the MLX server using either the Python module or the CLI command. Both methods support the same parameters.
+You can start the MLX server using either the Python module or the CLI command. Both methods support the same parameters, including logging configuration options.
 
 #### Method 1: Python Module
 ```bash
@@ -294,6 +294,19 @@ python -m app.main \
   --max-concurrency 1 \
   --queue-timeout 300 \
   --queue-size 100
+
+# With logging configuration options
+python -m app.main \
+  --model-path <path-to-mlx-model> \
+  --model-type lm \
+  --no-log-file \
+  --log-level INFO
+
+python -m app.main \
+  --model-path <path-to-mlx-model> \
+  --model-type lm \
+  --log-file /tmp/custom.log \
+  --log-level DEBUG
 ```
 
 #### Method 2: CLI Command
@@ -478,6 +491,10 @@ mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm --no-l
 
 # Use default logging (logs/app.log, INFO level)
 mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm
+
+# Using python -m app.main (alternative method)
+python -m app.main --model-path <path-to-mlx-model> --model-type lm --no-log-file
+python -m app.main --model-path <path-to-mlx-model> --model-type lm --log-file /tmp/custom.log
 ```
 
 > **Note:** Text embeddings via the `/v1/embeddings` endpoint are now available with both text-only models (`--model-type lm`) and multimodal models (`--model-type multimodal`).
@@ -519,6 +536,10 @@ mlx-openai-server launch --model-path <path-to-model> --model-type lm --no-log-f
 
 # High-level logging (errors only)
 mlx-openai-server launch --model-path <path-to-model> --model-type lm --log-level ERROR
+
+# Using python -m app.main with logging options
+python -m app.main --model-path <path-to-model> --model-type lm --no-log-file
+python -m app.main --model-path <path-to-model> --model-type lm --log-file /tmp/custom.log --log-level DEBUG
 ```
 
 #### Log File Features
