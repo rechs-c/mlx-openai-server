@@ -33,19 +33,18 @@ def configure_logging(log_file=None, no_log_file=False, log_level="INFO"):
         colorize=True
     )
     
-    # # Add file handler if not disabled
-    # if not no_log_file:
-    #     file_path = log_file if log_file else "logs/app.log"
-    #     logger.add(
-    #         file_path,
-    #         rotation="500 MB",
-    #         retention="10 days",
-    #         level=log_level,
-    #         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-    #     )
+    # Add file handler if not disabled
+    if not no_log_file:
+        file_path = log_file if log_file else "logs/app.log"
+        logger.add(
+            file_path,
+            rotation="500 MB",
+            retention="10 days",
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+        )
 
-# Default logging configuration (will be overridden by CLI args)
-configure_logging()
+# Logging will be configured in setup_server() with CLI arguments
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MLX OpenAI Compatible Server")
@@ -62,6 +61,9 @@ def parse_args():
     parser.add_argument("--lora-paths", type=str, default=None, help="Path to the LoRA file(s). Multiple paths should be separated by commas.")
     parser.add_argument("--lora-scales", type=str, default=None, help="Scale factor for the LoRA file(s). Multiple scales should be separated by commas.")
     parser.add_argument("--disable-auto-resize", action="store_true", help="Disable automatic model resizing. Only work for Vision Language Models.")
+    parser.add_argument("--log-file", type=str, default=None, help="Path to log file. If not specified, logs will be written to 'logs/app.log' by default.")
+    parser.add_argument("--no-log-file", action="store_true", help="Disable file logging entirely. Only console output will be shown.")
+    parser.add_argument("--log-level", type=str, default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], help="Set the logging level. Default is INFO.")
     
     args = parser.parse_args()
     
