@@ -13,9 +13,9 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.3.3",
+        "mlx-vlm @ file:///var/ai/mlx-openai-server/mlx-vlm",
         "mlx-lm @ file:///var/ai/mlx-openai-server/mlx-lm",
-        "mlx-embeddings==0.0.3",
+        "mlx-embeddings @ file:///var/ai/mlx-openai-server/mlx-embeddings",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",
