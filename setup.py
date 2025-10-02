@@ -22,7 +22,7 @@ setup(
         "click==8.2.1",
         "loguru==0.7.3",
         "outlines==1.1.0",
-        "openai-harmony==0.0.3",
+        "openai-harmony==0.0.4",
         "python-multipart==0.0.20"
     ],
     extras_require={
