@@ -423,3 +423,12 @@ class TranscriptionRequest(OpenAIBaseModel):
     frequency_penalty: Optional[float] = Field(default=None, description="The frequency penalty for the transcription")
     repetition_penalty: Optional[float] = Field(default=None, description="The repetition penalty for the transcription")
     presence_penalty: Optional[int] = Field(default=None, description="The repetition context size for the transcription")
+
+# Transcription response objects
+class TranscriptionUsageAudio(OpenAIBaseModel):
+    type: Literal["duration"] = Field(..., description="The type of usage, always 'duration'")
+    seconds: int = Field(..., description="The duration of the audio in seconds")
+
+class TranscriptionResponse(OpenAIBaseModel):
+    text: str = Field(..., description="The transcribed text.")
+    usage: TranscriptionUsageAudio = Field(..., description="The usage of the transcription.")

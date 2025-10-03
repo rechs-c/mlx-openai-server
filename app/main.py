@@ -14,6 +14,7 @@ import mlx.core as mx
 from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler.mlx_lm import MLXLMHandler
 from app.handler.mlx_embeddings import MLXEmbeddingsHandler
+from app.handler.mlx_whisper import MLXWhisperHandler
 from app.handler import MLXFluxHandler, MFLUX_AVAILABLE 
 from app.api.endpoints import router
 from app.version import __version__
@@ -48,8 +49,8 @@ def configure_logging(log_file=None, no_log_file=False, log_level="INFO"):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MLX OpenAI Compatible Server")
-    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, image-generation, image-edit, embeddings model types). With `image-generation` or `image-edit` model types, it should be the local path to the model.")
-    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings"], help="Model type")
+    parser.add_argument("--model-path", type=str, help="Path to the model (required for lm, multimodal, image-generation, image-edit, embeddings, whisper model types). With `image-generation` or `image-edit` model types, it should be the local path to the model.")
+    parser.add_argument("--model-type", type=str, default="lm", choices=["lm", "multimodal", "image-generation", "image-edit", "embeddings", "whisper"], help="Model type")
     parser.add_argument("--context-length", type=int, default=None, help="Context length for language models. Only works with `lm` or `multimodal` model types.")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
@@ -122,6 +123,11 @@ def create_lifespan(config_args):
                     config_name=config_args.config_name,
                     lora_paths=getattr(config_args, 'lora_paths', None),
                     lora_scales=getattr(config_args, 'lora_scales', None)
+                )
+            elif config_args.model_type == "whisper":
+                handler = MLXWhisperHandler(
+                    model_path=model_identifier,
+                    max_concurrency=config_args.max_concurrency
                 )
             else:
                 handler = MLXLMHandler(

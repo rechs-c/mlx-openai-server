@@ -18,7 +18,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
                                 StreamingChoice, ImageGenerationRequest,
-                                ImageEditRequest, ImageEditResponse)
+                                ImageEditRequest, ImageEditResponse, TranscriptionRequest, TranscriptionResponse)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -152,8 +152,26 @@ async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_re
         logger.error(f"Error processing image edit request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
-
+@router.post("/v1/audio/transcriptions")
+async def create_audio_transcriptions(
+    request: Annotated[TranscriptionRequest, Form()],
+    raw_request: Request
+) -> TranscriptionResponse:
+    """Handle audio transcription requests."""
+    handler = raw_request.app.state.handler
+    if handler is None:
+        return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
+    if request.stream:
+        raise HTTPException(status_code=400, detail="Streaming is not supported for audio transcription requests")
+
+    try:
+        transcription_response = await handler.transcribe_audio(request)
+        return transcription_response
+    except Exception as e:
+        logger.error(f"Error processing audio transcription request: {str(e)}", exc_info=True)
+        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
     embeddings_response = []
     for index, embedding in enumerate(embeddings):
