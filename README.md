@@ -93,13 +93,18 @@ This server implements the OpenAI API interface, allowing you to use it as a dro
 
 ## Supported Model Types
 
-The server supports five types of MLX models:
+The server supports six types of MLX models:
 
 1. **Text-only models** (`--model-type lm`) - Uses the `mlx-lm` library for pure language models
 2. **Multimodal models** (`--model-type multimodal`) - Uses the `mlx-vlm` library for multimodal models that can process text, images, and audio
 3. **Image generation models** (`--model-type image-generation`) - Uses the `mflux` library for Flux-series image generation models with enhanced configurations ⚠️ *Requires manual installation of `mflux`*
 4. **Image editing models** (`--model-type image-edit`) - Uses the `mflux` library for Flux-series image editing models ⚠️ *Requires manual installation of `mflux`*
 5. **Embeddings models** (`--model-type embeddings`) - Uses the `mlx-embeddings` library for text embeddings generation with optimized memory management
+6. **Whisper models** (`--model-type whisper`) - Uses the `mlx-whisper` library for audio transcription and speech recognition ⚠️ *Requires ffmpeg installation*
+
+### Whisper Models
+
+> **⚠️ Note:** Whisper models require ffmpeg to be installed for audio processing: `brew install ffmpeg`
 
 ### Flux-Series Image Models
 
@@ -242,6 +247,21 @@ pip install git+https://github.com/cubist38/mflux.git
 
 > **Note:** If you try to use image generation or editing without `mflux` installed, you'll receive a clear error message directing you to install it manually.
 
+#### Whisper Models Support
+For whisper models to work properly, you need to install ffmpeg:
+
+```bash
+# Install ffmpeg using Homebrew
+brew install ffmpeg
+```
+
+**Features with ffmpeg:**
+- Audio transcription models (`--model-type whisper`)
+- Speech recognition capabilities
+- Support for various audio formats (WAV, MP3, M4A, etc.)
+
+> **Note:** Whisper models require ffmpeg for audio processing. Make sure to install it before using whisper model types.
+
 ### Troubleshooting
 **Issue:** My OS and Python versions meet the requirements, but `pip` cannot find a matching distribution.
 
@@ -295,6 +315,14 @@ python -m app.main \
   --queue-timeout 300 \
   --queue-size 100
 
+# For whisper models
+python -m app.main \
+  --model-type whisper \
+  --model-path <whisper-model-path> \
+  --max-concurrency 1 \
+  --queue-timeout 600 \
+  --queue-size 50
+
 # With logging configuration options
 python -m app.main \
   --model-path <path-to-mlx-model> \
@@ -315,7 +343,7 @@ python -m app.main \
 mlx-openai-server launch \
   --model-path <path-to-mlx-model> \
   --model-type <lm|multimodal> \
-  --port 8000
+
 
 # For image generation models (Flux-series)
 mlx-openai-server launch \
@@ -323,7 +351,7 @@ mlx-openai-server launch \
   --model-path <path-to-local-flux-model> \
   --config-name <flux-schnell|flux-dev|flux-krea-dev> \
   --quantize 8 \
-  --port 8000
+
 
 # For image editing models (Flux-series)
 mlx-openai-server launch \
@@ -331,7 +359,16 @@ mlx-openai-server launch \
   --model-path <path-to-local-flux-model> \
   --config-name flux-kontext-dev \
   --quantize 8 \
-  --port 8000
+
+
+# For whisper models
+mlx-openai-server launch \
+  --model-path mlx-community/whisper-large-v3-mlx \
+  --model-type whisper \
+  --max-concurrency 1 \
+  --queue-timeout 600 \
+  --queue-size 50 \
+
 
 # With LoRA adapters
 mlx-openai-server launch \
@@ -340,17 +377,18 @@ mlx-openai-server launch \
   --config-name flux-dev \
   --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" \
   --lora-scales "0.8,0.6" \
-  --port 8000
+
 ```
 
 #### Server Parameters
-- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, `embeddings`, `image-generation`, and `image-edit` model types.
+- `--model-path`: Path to the MLX model directory (local path or Hugging Face model repository). Required for `lm`, `multimodal`, `embeddings`, `image-generation`, `image-edit`, and `whisper` model types.
 - `--model-type`: Type of model to run:
   - `lm` for text-only models
   - `multimodal` for multimodal models (text, vision, audio)
   - `image-generation` for image generation models
   - `image-edit` for image editing models
   - `embeddings` for embeddings models
+  - `whisper` for whisper models (audio transcription)
   - Default: `lm`
 - `--context-length`: Context length for language models. Controls the maximum sequence length for text processing and memory usage optimization. Default: `None` (uses model's default context length).
 - `--config-name`: Flux model configuration to use. Only used for `image-generation` and `image-edit` model types:
@@ -458,6 +496,18 @@ python -m app.main \
   --queue-size 100
 ```
 
+**Whisper models:**
+
+*Audio transcription with Whisper:*
+```bash
+python -m app.main \
+  --model-type whisper \
+  --model-path mlx-community/whisper-large-v3-mlx \
+  --max-concurrency 1 \
+  --queue-timeout 600 \
+  --queue-size 50
+```
+
 ### CLI Usage
 
 The server provides a convenient CLI interface for easy startup and management:
@@ -472,16 +522,19 @@ mlx-openai-server launch --help
 **Launch the server:**
 ```bash
 # For text-only or multimodal models
-mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --context-length 8192 --port 8000
+mlx-openai-server launch --model-path <path-to-mlx-model> --model-type <lm|multimodal> --context-length 8192
 
 # For image generation models (Flux-series)
-mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name <flux-schnell|flux-dev|flux-krea-dev> --port 8000
+mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name <flux-schnell|flux-dev|flux-krea-dev>
 
 # For image editing models (Flux-series)
-mlx-openai-server launch --model-type image-edit --model-path <path-to-local-flux-model> --config-name flux-kontext-dev --port 8000
+mlx-openai-server launch --model-type image-edit --model-path <path-to-local-flux-model> --config-name flux-kontext-dev
+
+# For whisper models
+mlx-openai-server launch --model-path mlx-community/whisper-large-v3-mlx --model-type whisper
 
 # With LoRA adapters (image generation only)
-mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name flux-dev --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" --lora-scales "0.8,0.6" --port 8000
+mlx-openai-server launch --model-type image-generation --model-path <path-to-local-flux-model> --config-name flux-dev --lora-paths "/path/to/lora1.safetensors,/path/to/lora2.safetensors" --lora-scales "0.8,0.6"
 
 # With custom logging configuration
 mlx-openai-server launch --model-path <path-to-mlx-model> --model-type lm --log-file /tmp/server.log --log-level DEBUG
