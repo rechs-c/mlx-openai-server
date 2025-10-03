@@ -163,7 +163,7 @@ async def create_audio_transcriptions(
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     if request.stream:
-        raise JSONResponse(content=create_error_response("Streaming is not supported for audio transcription requests", "unsupported_request", 400), status_code=400)
+        return JSONResponse(content=create_error_response("Streaming is not supported for audio transcription requests", "unsupported_request", 400), status_code=400)
 
     try:
         transcription_response = await handler.transcribe_audio(request)
