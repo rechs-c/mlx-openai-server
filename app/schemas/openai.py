@@ -3,10 +3,45 @@ from enum import Enum
 import random
 from fastapi import UploadFile
 
+from pydantic import ConfigDict, model_validator
+from typing import ClassVar
+
 from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
 from loguru import logger
 
+
+class OpenAIBaseModel(BaseModel):
+    # OpenAI API does allow extra fields
+    model_config = ConfigDict(extra="allow")
+
+    # Cache class field names
+    field_names: ClassVar[Optional[set[str]]] = None
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def __log_extra_fields__(cls, data, handler):
+        result = handler(data)
+        if not isinstance(data, dict):
+            return result
+        field_names = cls.field_names
+        if field_names is None:
+            # Get all class field names and their potential aliases
+            field_names = set()
+            for field_name, field in cls.model_fields.items():
+                field_names.add(field_name)
+                if alias := getattr(field, "alias", None):
+                    field_names.add(alias)
+            cls.field_names = field_names
+
+        # Compare against both field names and aliases
+        if any(k not in field_names for k in data):
+            logger.warning(
+                "The following fields were present in the request "
+                "but ignored: %s",
+                data.keys() - field_names,
+            )
+        return result
 
 # Configuration
 class Config:
@@ -18,8 +53,9 @@ class Config:
     EMBEDDING_MODEL = "local-embedding-model"  # Model used for generating embeddings
     IMAGE_GENERATION_MODEL = "local-image-generation-model"
     IMAGE_EDIT_MODEL = "local-image-edit-model"
+    TRANSCRIPTION_MODEL="local-transcription-model"
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(OpenAIBaseModel):
     object: str = Field("error", description="The object type, always 'error'.")
     message: str = Field(..., description="The error message.")
     type: str = Field(..., description="The type of error.")
@@ -27,27 +63,27 @@ class ErrorResponse(BaseModel):
     code: int = Field(..., description="The error code.")
 
 # Common models used in both streaming and non-streaming contexts
-class ImageUrl(BaseModel):
+class ImageUrl(OpenAIBaseModel):
     """
     Represents an image URL in a message.
     """
     url: str = Field(..., description="The image URL.")
 
-class AudioInput(BaseModel):
+class AudioInput(OpenAIBaseModel):
     """
     Represents an audio URL in a message.
     """
     data: str = Field(..., description="The audio data.")
     format: Literal["mp3", "wav"] = Field(..., description="The audio format.")
 
-class AudioContentItem(BaseModel):
+class AudioContentItem(OpenAIBaseModel):
     """
     Represents an audio content item in a message.
     """
     type: str = Field(..., description="The type of content, e.g., 'input_audio'.")
     input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
 
-class MultimodalContentItem(BaseModel):
+class MultimodalContentItem(OpenAIBaseModel):
     """
     Represents a single content item in a message (text, image, or audio).
     """
@@ -56,14 +92,14 @@ class MultimodalContentItem(BaseModel):
     image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
     input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
 
-class FunctionCall(BaseModel):
+class FunctionCall(OpenAIBaseModel):
     """
     Represents a function call in a message.
     """
     arguments: str = Field(..., description="The arguments for the function call.")
     name: str = Field(..., description="The name of the function to call.")
 
-class ChatCompletionMessageToolCall(BaseModel):
+class ChatCompletionMessageToolCall(OpenAIBaseModel):
     """
     Represents a tool call in a message.
     """
@@ -72,7 +108,7 @@ class ChatCompletionMessageToolCall(BaseModel):
     type: Literal["function"] = Field(..., description="The type of tool call, always 'function'.")
     index: Optional[int] = Field(None, description="The index of the tool call.")
 
-class Message(BaseModel):
+class Message(OpenAIBaseModel):
     """
     Represents a message in a chat completion.
     """
@@ -85,7 +121,7 @@ class Message(BaseModel):
     tool_call_id: Optional[str] = Field(None, description="The ID of the tool call, if any.")
 
 # Common request base for both streaming and non-streaming
-class ChatCompletionRequestBase(BaseModel):
+class ChatCompletionRequestBase(OpenAIBaseModel):
     """
     Base model for chat completion requests.
     """
@@ -166,7 +202,7 @@ class ChatCompletionRequestBase(BaseModel):
         logger.debug(f"No images or audio detected, treating as text-only request")
         return False
     
-class ChatTemplateKwargs(BaseModel):
+class ChatTemplateKwargs(OpenAIBaseModel):
     """
     Represents the arguments for a chat template.
     """
@@ -181,7 +217,7 @@ class ChatCompletionRequest(ChatCompletionRequestBase):
     stream: bool = Field(False, description="Whether to stream the response.")
     chat_template_kwargs: ChatTemplateKwargs = Field(ChatTemplateKwargs(), description="Arguments for the chat template.")
 
-class Choice(BaseModel):
+class Choice(OpenAIBaseModel):
     """
     Represents a choice in a chat completion response.
     """
@@ -189,7 +225,7 @@ class Choice(BaseModel):
     index: int = Field(..., description="The index of the choice.")
     message: Message = Field(..., description="The message of the choice.")
 
-class ChatCompletionResponse(BaseModel):
+class ChatCompletionResponse(OpenAIBaseModel):
     """
     Represents a complete chat completion response.
     """
@@ -200,14 +236,14 @@ class ChatCompletionResponse(BaseModel):
     choices: List[Choice] = Field(..., description="List of choices in the response.")
 
 
-class ChoiceDeltaFunctionCall(BaseModel):
+class ChoiceDeltaFunctionCall(OpenAIBaseModel):
     """
     Represents a function call delta in a streaming response.
     """
     arguments: Optional[str] = Field(None, description="Arguments for the function call delta.")
     name: Optional[str] = Field(None, description="Name of the function in the delta.")
 
-class ChoiceDeltaToolCall(BaseModel):
+class ChoiceDeltaToolCall(OpenAIBaseModel):
     """
     Represents a tool call delta in a streaming response.
     """
@@ -216,7 +252,7 @@ class ChoiceDeltaToolCall(BaseModel):
     function: Optional[ChoiceDeltaFunctionCall] = Field(None, description="Function call details in the delta.")
     type: Optional[str] = Field(None, description="Type of the tool call delta.")
 
-class Delta(BaseModel):
+class Delta(OpenAIBaseModel):
     """
     Represents a delta in a streaming response.
     """
@@ -227,7 +263,7 @@ class Delta(BaseModel):
     tool_calls: Optional[List[ChoiceDeltaToolCall]] = Field(None, description="List of tool call deltas, if any.")
     reasoning_content: Optional[str] = Field(None, description="Reasoning content, if any.")
 
-class StreamingChoice(BaseModel):
+class StreamingChoice(OpenAIBaseModel):
     """
     Represents a choice in a streaming response.
     """
@@ -235,7 +271,7 @@ class StreamingChoice(BaseModel):
     finish_reason: Optional[Literal["stop", "length", "tool_calls", "content_filter", "function_call"]] = Field(None, description="The reason for finishing, if any.")
     index: int = Field(..., description="The index of the streaming choice.")
     
-class ChatCompletionChunk(BaseModel):
+class ChatCompletionChunk(OpenAIBaseModel):
     """
     Represents a chunk in a streaming chat completion response.
     """
@@ -246,7 +282,7 @@ class ChatCompletionChunk(BaseModel):
     object: Literal["chat.completion.chunk"] = Field(..., description="The object type, always 'chat.completion.chunk'.")
 
 # Embedding models
-class EmbeddingRequest(BaseModel):
+class EmbeddingRequest(OpenAIBaseModel):
     """
     Model for embedding requests.
     """
@@ -254,7 +290,7 @@ class EmbeddingRequest(BaseModel):
     input: List[str] = Field(..., description="List of text inputs for embedding.")
     image_url: Optional[str] = Field(default=None, description="Image URL to embed.")
 
-class Embedding(BaseModel):
+class Embedding(OpenAIBaseModel):
     """
     Represents an embedding object in an embedding response.
     """
@@ -262,7 +298,7 @@ class Embedding(BaseModel):
     index: int = Field(..., description="The index of the embedding in the list.")
     object: str = Field(default="embedding", description="The object type, always 'embedding'.")
 
-class EmbeddingResponse(BaseModel):
+class EmbeddingResponse(OpenAIBaseModel):
     """
     Represents an embedding response.
     """
@@ -270,7 +306,7 @@ class EmbeddingResponse(BaseModel):
     data: List[Embedding] = Field(..., description="List of embedding objects.")
     model: str = Field(..., description="The model used for embedding.")
 
-class Model(BaseModel):
+class Model(OpenAIBaseModel):
     """
     Represents a model in the models list response.
     """
@@ -279,7 +315,7 @@ class Model(BaseModel):
     created: int = Field(..., description="The creation timestamp.")
     owned_by: str = Field("openai", description="The owner of the model.")
 
-class ModelsResponse(BaseModel):
+class ModelsResponse(OpenAIBaseModel):
     """
     Represents the response for the models list endpoint.
     """
@@ -306,14 +342,17 @@ class ImageEditQuality(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
-class ResponseFormat(str, Enum):
+class ImageResponseFormat(str, Enum):
     """Image edit response format"""
 
     # Only support b64_json for now
     B64_JSON = "b64_json" 
 
+class AudioResponseFormat(str, Enum):
+    """Audio response format"""
+    JSON = "json"
 
-class ImageGenerationRequest(BaseModel):
+class ImageGenerationRequest(OpenAIBaseModel):
     """Request schema for OpenAI-compatible image generation API"""
     prompt: str = Field(..., description="A text description of the desired image(s). The maximum length is 1000 characters.", max_length=1000)
     negative_prompt: Optional[str] = Field(None, description="A text description of the desired image(s). The maximum length is 1000 characters.", max_length=1000)
@@ -322,54 +361,65 @@ class ImageGenerationRequest(BaseModel):
     guidance_scale: Optional[float] = Field(default=4.5, description="The guidance scale for the image generation")
     steps: Optional[int] = Field(default=28, ge=1, le=50, description="The number of inference steps (1-50)")
     seed: Optional[int] = Field(42, description="Seed for reproducible generation")
-    response_format: Optional[ResponseFormat] = Field(default=ResponseFormat.B64_JSON, description="The format in which the generated images are returned")
+    response_format: Optional[ImageResponseFormat] = Field(default=ImageResponseFormat.B64_JSON, description="The format in which the generated images are returned")
 
-class ImageData(BaseModel):
+class ImageData(OpenAIBaseModel):
     """Individual image data in the response"""
     url: Optional[str] = Field(None, description="The URL of the generated image, if response_format is url")
     b64_json: Optional[str] = Field(None, description="The base64-encoded JSON of the generated image, if response_format is b64_json")
 
-class ImageGenerationResponse(BaseModel):
+class ImageGenerationResponse(OpenAIBaseModel):
     """Response schema for OpenAI-compatible image generation API"""
     created: int = Field(..., description="The Unix timestamp (in seconds) when the image was created")
     data: List[ImageData] = Field(..., description="List of generated images")
 
-class ImageGenerationError(BaseModel):
+class ImageGenerationError(OpenAIBaseModel):
     """Error response schema"""
     code: str = Field(..., description="Error code (e.g., 'contentFilter', 'generation_error', 'queue_full')")
     message: str = Field(..., description="Human-readable error message")
     type: Optional[str] = Field(None, description="Error type")
 
-class ImageGenerationErrorResponse(BaseModel):
+class ImageGenerationErrorResponse(OpenAIBaseModel):
     """Error response wrapper"""
     created: int = Field(..., description="The Unix timestamp (in seconds) when the error occurred")
     error: ImageGenerationError = Field(..., description="Error details")
 
-class ImageEditRequest:
+class ImageEditRequest(OpenAIBaseModel):
     """Request data for OpenAI-compatible image edit API"""
-    def __init__(self, image: UploadFile, prompt: str, model: Optional[str] = None,
-                negative_prompt: Optional[str] = None, guidance_scale: Optional[float] = 2.5,
-                response_format: Optional[ResponseFormat] = ResponseFormat.B64_JSON,
-                seed: Optional[int] = 42, size: Optional[ImageSize] = None,
-                steps: Optional[int] = 28):
-       
-        self.image = image
-        self.prompt = prompt
-        self.model = model or Config.IMAGE_EDIT_MODEL
-        self.negative_prompt = negative_prompt
-        self.guidance_scale = guidance_scale
-        self.response_format = response_format
-        self.seed = seed
-        self.size = size
-        self.steps = steps
+    image: UploadFile = Field(..., description="The image to edit")
+    prompt: str = Field(..., description="The prompt for the image edit")
+    model: Optional[str] = Field(default=Config.IMAGE_EDIT_MODEL, description="The model to use for image edit")
+    negative_prompt: Optional[str] = Field(None, description="The negative prompt for the image edit")
+    guidance_scale: Optional[float] = Field(default=2.5, description="The guidance scale for the image edit")
+    response_format: Optional[ImageResponseFormat] = Field(default=ImageResponseFormat.B64_JSON, description="The format in which the edited image is returned")
+    seed: Optional[int] = Field(default=42, description="The seed for the image edit")
+    size: Optional[ImageSize] = Field(None, description="The size of the edited image")
+    steps: Optional[int] = Field(default=28, description="The number of inference steps for the image edit")
 
-class ImageEditResponse(BaseModel):
+class ImageEditResponse(OpenAIBaseModel):
     """Response schema for OpenAI-compatible image edit API"""
     created: int = Field(..., description="The Unix timestamp (in seconds) when the image was edited")
     data: List[ImageData] = Field(..., description="List of edited images")
 
-class ImageEditErrorResponse(BaseModel):
+class ImageEditErrorResponse(OpenAIBaseModel):
     """Error response schema"""
     code: str = Field(..., description="Error code (e.g., 'contentFilter', 'generation_error', 'queue_full')")
     message: str = Field(..., description="Human-readable error message")
     type: Optional[str] = Field(None, description="Error type")
+
+class TranscriptionRequest(OpenAIBaseModel):
+    """Request schema for OpenAI-compatible transcription API"""
+    file: UploadFile = Field(..., description="The audio file to transcribe")
+    model: Optional[str] = Field(default=Config.TRANSCRIPTION_MODEL, description="The model to use for transcription")
+    language: Optional[str] = Field(None, description="The language of the audio file")
+    prompt: Optional[str] = Field(None, description="The prompt for the transcription")
+    response_format: Optional[AudioResponseFormat] = Field(default=AudioResponseFormat.JSON, description="The format in which the transcription is returned")
+    stream: Optional[bool] = Field(default=False, description="Whether to stream the transcription")
+    temperature: Optional[float] = Field(default=0.0, description="The temperature for the transcription")
+    top_p: Optional[float] = Field(default=None, description="The top-p for the transcription")
+    top_k: Optional[int] = Field(default=None, description="The top-k for the transcription")
+    min_p: Optional[float] = Field(default=None, description="The min-p for the transcription")
+    seed: Optional[int] = Field(default=None, description="The seed for the transcription")
+    frequency_penalty: Optional[float] = Field(default=None, description="The frequency penalty for the transcription")
+    repetition_penalty: Optional[float] = Field(default=None, description="The repetition penalty for the transcription")
+    presence_penalty: Optional[int] = Field(default=None, description="The repetition context size for the transcription")

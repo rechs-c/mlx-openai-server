@@ -2,9 +2,9 @@ import json
 import random
 import time
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional, Union, AsyncGenerator
+from typing import Any, Dict, List, Optional, Union, AsyncGenerator, Annotated
 
-from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
@@ -18,7 +18,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
                                 StreamingChoice, ImageGenerationRequest,
-                                ImageEditRequest, ImageSize, ResponseFormat)
+                                ImageEditRequest, ImageEditResponse)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -128,18 +128,7 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 @router.post("/v1/images/edits")
-async def create_image_edit(
-    raw_request: Request,
-    image: UploadFile = File(...),
-    prompt: str = Form(...),
-    model: Optional[str] = Form(default="flux-kontext"),
-    negative_prompt: Optional[str] = Form(default=None),
-    guidance_scale: Optional[float] = Form(default=2.5),
-    response_format: Optional[str] = Form(default="b64_json"),
-    seed: Optional[int] = Form(default=42),
-    size: Optional[str] = Form(default=None),
-    steps: Optional[int] = Form(default=4)
-) -> Any:
+async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_request: Request) -> ImageEditResponse:
     """Handle image editing requests with dynamic provider routing."""
 
     handler = raw_request.app.state.handler
@@ -157,35 +146,7 @@ async def create_image_edit(
             status_code=400
         )
     try:
-        # Convert string values to appropriate types
-        parsed_size = None
-        if size:
-            try:
-                parsed_size = ImageSize(size)
-            except ValueError:
-                parsed_size = None
-        
-        parsed_response_format = ResponseFormat.B64_JSON
-        if response_format:
-            try:
-                parsed_response_format = ResponseFormat(response_format)
-            except ValueError:
-                parsed_response_format = ResponseFormat.B64_JSON
-        
-        # Create ImageEditRequest object from form data
-        image_edit_request = ImageEditRequest(
-            image=image,
-            prompt=prompt,
-            model=model,
-            negative_prompt=negative_prompt,
-            guidance_scale=guidance_scale,
-            response_format=parsed_response_format,
-            seed=seed,
-            size=parsed_size,
-            steps=steps
-        )
-        
-        image_response = await handler.edit_image(image_edit_request)
+        image_response = await handler.edit_image(request)
         return image_response
     except Exception as e:
         logger.error(f"Error processing image edit request: {str(e)}", exc_info=True)
