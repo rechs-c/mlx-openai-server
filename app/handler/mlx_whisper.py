@@ -1,20 +1,27 @@
 import gc
+import json
 import os
+import tempfile
 import time
 import uuid
-import asyncio
-import tempfile
+from typing import Any, AsyncGenerator, Dict, List, Optional
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 from loguru import logger
 
-from app.models.mlx_whisper import MLX_Whisper
 from app.core.queue import RequestQueue
-from app.schemas.openai import TranscriptionRequest, TranscriptionResponse, TranscriptionUsageAudio
+from app.models.mlx_whisper import MLX_Whisper, calculate_audio_duration
+from app.schemas.openai import (
+    TranscriptionRequest, 
+    TranscriptionResponse, 
+    TranscriptionUsageAudio, 
+    TranscriptionResponseFormat,
+    TranscriptionResponseStream,
+    TranscriptionResponseStreamChoice,
+    Delta
+)
 from app.utils.errors import create_error_response
-
 
 class MLXWhisperHandler:
     """
@@ -66,68 +73,118 @@ class MLXWhisperHandler:
         await self.request_queue.start(self._process_request)
         logger.info("Initialized MLXWhisperHandler and started request queue")
 
-    async def transcribe_audio(self, request: TranscriptionRequest) -> TranscriptionResponse:
+    async def generate_transcription_response(self, request: TranscriptionRequest) -> TranscriptionResponse:
         """
-        Transcribe audio from the provided file.
-        Uses the request queue for handling concurrent requests.
-        
-        Args:
-            request: TranscriptionRequest object containing the audio file and parameters.
-        
-        Returns:
-            TranscriptionResponse: Response containing the transcribed text and usage info.
+        Generate a transcription response for the given request.
         """
         request_id = f"transcription-{uuid.uuid4()}"
-        temp_audio_path = None
+        temp_file_path = None
         
         try:
-            # Save uploaded file to a temporary location
-            temp_audio_path = await self._save_uploaded_file(request.file)
-            
-            # Prepare request data
-            request_data = await self._prepare_transcription_request(request, temp_audio_path)
-            
-            # Submit to the request queue
+            request_data = await self._prepare_transcription_request(request)
+            temp_file_path = request_data.get("audio_path")
             response = await self.request_queue.submit(request_id, request_data)
-            
-            # Calculate audio duration for usage tracking
-            audio_duration = self._calculate_audio_duration(temp_audio_path)
-            
-            # Create response
-            transcription_response = TranscriptionResponse(
+            response_data = TranscriptionResponse(
                 text=response["text"],
                 usage=TranscriptionUsageAudio(
                     type="duration",
-                    seconds=audio_duration
+                    seconds=int(calculate_audio_duration(temp_file_path))
                 )
             )
-            
-            return transcription_response
-            
-        except asyncio.QueueFull:
-            logger.error("Too many requests. Service is at capacity.")
-            content = create_error_response(
-                "Too many requests. Service is at capacity.", 
-                "rate_limit_exceeded", 
-                HTTPStatus.TOO_MANY_REQUESTS
-            )
-            raise HTTPException(status_code=429, detail=content)
-        except Exception as e:
-            logger.error(f"Error in audio transcription for request {request_id}: {str(e)}")
-            content = create_error_response(
-                f"Failed to transcribe audio: {str(e)}", 
-                "server_error", 
-                HTTPStatus.INTERNAL_SERVER_ERROR
-            )
-            raise HTTPException(status_code=500, detail=content)
+            if request.response_format == TranscriptionResponseFormat.JSON:
+                return response_data
+            else:
+                # dump to string for text response
+                return json.dumps(response_data.model_dump())
         finally:
             # Clean up temporary file
-            if temp_audio_path and os.path.exists(temp_audio_path):
+            if temp_file_path and os.path.exists(temp_file_path):
                 try:
-                    os.remove(temp_audio_path)
-                    logger.debug(f"Cleaned up temporary audio file: {temp_audio_path}")
+                    os.unlink(temp_file_path)
+                    logger.debug(f"Cleaned up temporary file: {temp_file_path}")
                 except Exception as e:
-                    logger.warning(f"Failed to clean up temporary file {temp_audio_path}: {str(e)}")
+                    logger.warning(f"Failed to clean up temporary file {temp_file_path}: {str(e)}")
+            # Force garbage collection
+            gc.collect()
+
+    async def generate_transcription_stream_from_data(
+        self, 
+        request_data: Dict[str, Any],
+        response_format: TranscriptionResponseFormat
+    ) -> AsyncGenerator[str, None]:
+        """
+        Generate a transcription stream from prepared request data.
+        Yields SSE-formatted chunks with timing information.
+        
+        Args:
+            request_data: Prepared request data with audio_path already saved
+            response_format: The response format (json or text)
+        """
+        request_id = f"transcription-{uuid.uuid4()}"
+        created_time = int(time.time())
+        temp_file_path = request_data.get("audio_path")
+        
+        try:
+            # Set stream mode
+            request_data["stream"] = True
+            
+            # Get the generator directly from the model (bypass queue for streaming)
+            generator = self.model(
+                audio_path=request_data.pop("audio_path"),
+                **request_data
+            )
+            
+            # Stream each chunk
+            for chunk in generator:
+                # Create streaming response
+                stream_response = TranscriptionResponseStream(
+                    id=request_id,
+                    object="transcription.chunk",
+                    created=created_time,
+                    model=self.model_path,
+                    choices=[
+                        TranscriptionResponseStreamChoice(
+                            delta=Delta(
+                                content=chunk.get("text", "")
+                            ),
+                            finish_reason=None
+                        )
+                    ]
+                )
+                
+                # Yield as SSE format
+                yield f"data: {stream_response.model_dump_json()}\n\n"
+            
+            # Send final chunk with finish_reason
+            final_response = TranscriptionResponseStream(
+                id=request_id,
+                object="transcription.chunk",
+                created=created_time,
+                model=self.model_path,
+                choices=[
+                    TranscriptionResponseStreamChoice(
+                        delta=Delta(content=""),
+                        finish_reason="stop"
+                    )
+                ]
+            )
+            yield f"data: {final_response.model_dump_json()}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error during transcription streaming: {str(e)}")
+            raise
+        finally:
+            # Clean up temporary file
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                    logger.debug(f"Cleaned up temporary file: {temp_file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temporary file {temp_file_path}: {str(e)}")
+            # Clean up
+            gc.collect()
+
 
     async def _process_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -173,11 +230,15 @@ class MLXWhisperHandler:
         try:
             # Create a temporary file with the same extension as the uploaded file
             file_extension = os.path.splitext(file.filename)[1] if file.filename else ".wav"
+
+            print("file_extension", file_extension)
+            
+            # Read file content first (this can only be done once with FastAPI uploads)
+            content = await file.read()
             
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                # Read and write the file contents
-                content = await file.read()
+                # Write the file contents
                 temp_file.write(content)
                 temp_path = temp_file.name
             
@@ -190,9 +251,8 @@ class MLXWhisperHandler:
 
     async def _prepare_transcription_request(
         self, 
-        request: TranscriptionRequest, 
-        audio_path: str
-    ) -> Dict[str, Any]:
+        request: TranscriptionRequest    
+        ) -> Dict[str, Any]:
         """
         Prepare a transcription request by parsing model parameters.
         
@@ -204,8 +264,12 @@ class MLXWhisperHandler:
             Dict containing the request data ready for the model.
         """
         try:
+
+            file = request.file
+
+            file_path = await self._save_uploaded_file(file)
             request_data = {
-                "audio_path": audio_path,
+                "audio_path": file_path,
                 "verbose": False,
             }
             
@@ -239,36 +303,6 @@ class MLXWhisperHandler:
                 HTTPStatus.BAD_REQUEST
             )
             raise HTTPException(status_code=400, detail=content)
-
-    def _calculate_audio_duration(self, audio_path: str) -> int:
-        """
-        Calculate the duration of the audio file in seconds.
-        
-        Args:
-            audio_path: Path to the audio file.
-            
-        Returns:
-            int: Duration in seconds.
-        """
-        try:
-            # Try to import librosa for accurate duration calculation
-            try:
-                import librosa
-                duration = librosa.get_duration(path=audio_path)
-                return int(duration)
-            except ImportError:
-                # Fallback: estimate based on file size (very rough approximation)
-                # Assume ~32kbps for compressed audio
-                file_size = os.path.getsize(audio_path)
-                estimated_duration = file_size / (32000 / 8)  # bytes / (bits_per_sec / 8)
-                logger.warning(
-                    "librosa not available, using rough file-size-based duration estimate. "
-                    "Install librosa for accurate duration calculation."
-                )
-                return int(estimated_duration)
-        except Exception as e:
-            logger.warning(f"Failed to calculate audio duration: {str(e)}, defaulting to 0")
-            return 0
 
     async def get_queue_stats(self) -> Dict[str, Any]:
         """
