@@ -14,7 +14,7 @@ setup(
     packages=find_packages(), 
     install_requires=[
         "mlx-vlm==0.3.3",
-        "mlx-lm==0.28.1",
+        "mlx-lm==0.28.2",
         "mlx-whisper==0.4.3",
         "mlx-embeddings==0.0.4",
         "fastapi==0.115.14",
