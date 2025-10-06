@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 import random
+from app.core.queue import T
 from fastapi import UploadFile
 
 from pydantic import ConfigDict, model_validator
@@ -91,6 +92,15 @@ class MultimodalContentItem(OpenAIBaseModel):
     text: Optional[str] = Field(None, description="The text content, if type is 'text'.")
     image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
     input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
+
+class PromptTokenUsageInfo(OpenAIBaseModel):
+    cached_tokens: Optional[int] = None
+
+class UsageInfo(OpenAIBaseModel):
+    prompt_tokens: int = 0
+    total_tokens: int = 0
+    completion_tokens: Optional[int] = 0
+    prompt_tokens_details: Optional[PromptTokenUsageInfo] = None
 
 class FunctionCall(OpenAIBaseModel):
     """
@@ -234,7 +244,7 @@ class ChatCompletionResponse(OpenAIBaseModel):
     created: int = Field(..., description="The creation timestamp.")
     model: str = Field(..., description="The model used for completion.")
     choices: List[Choice] = Field(..., description="List of choices in the response.")
-
+    usage: Optional[UsageInfo] = Field(default=None, description="The usage of the completion.")
 
 class ChoiceDeltaFunctionCall(OpenAIBaseModel):
     """
@@ -280,6 +290,7 @@ class ChatCompletionChunk(OpenAIBaseModel):
     created: int = Field(..., description="The creation timestamp of the chunk.")
     model: str = Field(..., description="The model used for the chunk.")
     object: Literal["chat.completion.chunk"] = Field(..., description="The object type, always 'chat.completion.chunk'.")
+    usage: Optional[UsageInfo] = Field(default=None, description="The usage of the chunk.")
 
 # Embedding models
 class EmbeddingRequest(OpenAIBaseModel):
@@ -348,9 +359,10 @@ class ImageResponseFormat(str, Enum):
     # Only support b64_json for now
     B64_JSON = "b64_json" 
 
-class AudioResponseFormat(str, Enum):
+class TranscriptionResponseFormat(str, Enum):
     """Audio response format"""
     JSON = "json"
+    TEXT = "text"
 
 class ImageGenerationRequest(OpenAIBaseModel):
     """Request schema for OpenAI-compatible image generation API"""
@@ -379,11 +391,6 @@ class ImageGenerationError(OpenAIBaseModel):
     message: str = Field(..., description="Human-readable error message")
     type: Optional[str] = Field(None, description="Error type")
 
-class ImageGenerationErrorResponse(OpenAIBaseModel):
-    """Error response wrapper"""
-    created: int = Field(..., description="The Unix timestamp (in seconds) when the error occurred")
-    error: ImageGenerationError = Field(..., description="Error details")
-
 class ImageEditRequest(OpenAIBaseModel):
     """Request data for OpenAI-compatible image edit API"""
     image: UploadFile = Field(..., description="The image to edit")
@@ -401,19 +408,13 @@ class ImageEditResponse(OpenAIBaseModel):
     created: int = Field(..., description="The Unix timestamp (in seconds) when the image was edited")
     data: List[ImageData] = Field(..., description="List of edited images")
 
-class ImageEditErrorResponse(OpenAIBaseModel):
-    """Error response schema"""
-    code: str = Field(..., description="Error code (e.g., 'contentFilter', 'generation_error', 'queue_full')")
-    message: str = Field(..., description="Human-readable error message")
-    type: Optional[str] = Field(None, description="Error type")
-
 class TranscriptionRequest(OpenAIBaseModel):
     """Request schema for OpenAI-compatible transcription API"""
     file: UploadFile = Field(..., description="The audio file to transcribe")
     model: Optional[str] = Field(default=Config.TRANSCRIPTION_MODEL, description="The model to use for transcription")
     language: Optional[str] = Field(None, description="The language of the audio file")
     prompt: Optional[str] = Field(None, description="The prompt for the transcription")
-    response_format: Optional[AudioResponseFormat] = Field(default=AudioResponseFormat.JSON, description="The format in which the transcription is returned")
+    response_format: Optional[TranscriptionResponseFormat] = Field(default=TranscriptionResponseFormat.JSON, description="The format in which the transcription is returned")
     stream: Optional[bool] = Field(default=False, description="Whether to stream the transcription")
     temperature: Optional[float] = Field(default=0.0, description="The temperature for the transcription")
     top_p: Optional[float] = Field(default=None, description="The top-p for the transcription")
@@ -432,3 +433,16 @@ class TranscriptionUsageAudio(OpenAIBaseModel):
 class TranscriptionResponse(OpenAIBaseModel):
     text: str = Field(..., description="The transcribed text.")
     usage: TranscriptionUsageAudio = Field(..., description="The usage of the transcription.")
+
+class TranscriptionResponseStreamChoice(OpenAIBaseModel):
+    delta: Delta = Field(..., description="The delta for this streaming choice.")
+    finish_reason: Optional[str] = None
+    stop_reason: Optional[Union[int, str]] = None
+
+class TranscriptionResponseStream(OpenAIBaseModel):
+    id: str = Field(..., description="The ID of the transcription.")
+    object: Literal["transcription.chunk"] = Field(..., description="The object type, always 'transcription.chunk'.")
+    created: int = Field(..., description="The creation timestamp of the chunk.")
+    model: str = Field(..., description="The model used for the transcription.")
+    choices: List[TranscriptionResponseStreamChoice] = Field(..., description="The choices for this streaming response.")
+    usage: Optional[UsageInfo] = Field(default=None, description="The usage of the transcription.")

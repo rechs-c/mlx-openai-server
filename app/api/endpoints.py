@@ -18,7 +18,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
                                 StreamingChoice, ImageGenerationRequest,
-                                ImageEditRequest, ImageEditResponse, TranscriptionRequest, TranscriptionResponse)
+                                ImageEditRequest, TranscriptionRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -128,7 +128,7 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 @router.post("/v1/images/edits")
-async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_request: Request) -> ImageEditResponse:
+async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_request: Request):
     """Handle image editing requests with dynamic provider routing."""
 
     handler = raw_request.app.state.handler
@@ -156,22 +156,29 @@ async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_re
 async def create_audio_transcriptions(
     request: Annotated[TranscriptionRequest, Form()],
     raw_request: Request
-) -> TranscriptionResponse:
+):
     """Handle audio transcription requests."""
-    handler = raw_request.app.state.handler
-    if handler is None:
-        return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
-    
-    if request.stream:
-        return JSONResponse(content=create_error_response("Streaming is not supported for audio transcription requests", "unsupported_request", 400), status_code=400)
-
     try:
-        transcription_response = await handler.transcribe_audio(request)
-        return transcription_response
-    except Exception as e:
-        logger.error(f"Error processing audio transcription request: {str(e)}", exc_info=True)
-        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+        handler = raw_request.app.state.handler
+        if handler is None:
+            return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
+        
+        if request.stream:
 
+            # procoess the request before sending to the handler
+            request_data = await handler._prepare_transcription_request(request)
+            return StreamingResponse(
+                handler.generate_transcription_stream_from_data(request_data, request.response_format),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+            )
+        else:
+            transcription_response = await handler.generate_transcription_response(request)
+            return transcription_response
+    except Exception as e:
+        logger.error(f"Error processing transcription request: {str(e)}", exc_info=True)
+        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+    
 def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
     embeddings_response = []
     for index, embedding in enumerate(embeddings):
@@ -237,7 +244,6 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
         model=model,
         choices=[StreamingChoice(index=0, delta=delta, finish_reason=None)]
     )
-
 
 async def handle_stream_response(generator: AsyncGenerator, model: str):
     """Handle streaming response generation (OpenAI-compatible)."""
