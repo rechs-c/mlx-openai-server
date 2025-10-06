@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from app.handler.parser.base import BaseToolParser, BaseThinkingParser
 
 TOOL_OPEN = "<tool_call>"
@@ -104,14 +104,19 @@ class Glm4MoEToolParser(BaseToolParser):
         
         return tool_calls, remaining_content
     
-    def parse_stream(self, chunk: str):
+    def parse_stream(self, chunk: str) -> Tuple[Optional[Any], bool]:
         """
         Parse streaming chunks for GLM4 tool calls.
         
         This handles the XML-style format incrementally.
+        
+        Returns:
+            Tuple[parsed_content, is_complete]:
+                - parsed_content: The parsed chunk (could be str, dict, or None)
+                - is_complete: True if tool call is complete
         """
         if chunk is None:
-            return None
+            return None, False
         
         self.stream_buffer += chunk
         
@@ -127,16 +132,16 @@ class Glm4MoEToolParser(BaseToolParser):
                 self.current_args = {}
                 
                 if content_before:
-                    return content_before
-                return None
+                    return content_before, False
+                return None, False
             else:
                 # No tool call found yet, return the content (except last few chars as buffer)
                 if len(self.stream_buffer) > len(self.tool_open):
                     content_to_return = self.stream_buffer[:-len(self.tool_open)]
                     self.stream_buffer = self.stream_buffer[-len(self.tool_open):]
                     if content_to_return:
-                        return content_to_return
-                return None
+                        return content_to_return, False
+                return None, False
         
         # We're inside a tool call
         if self.tool_close in self.stream_buffer:
@@ -158,8 +163,8 @@ class Glm4MoEToolParser(BaseToolParser):
                 return {
                     "name": tool["name"],
                     "arguments": tool["arguments"]
-                }
-            return None
+                }, True  # Tool call complete
+            return None, True
         
         # Still accumulating the tool call
         # Try to extract function name if we haven't yet
@@ -174,7 +179,7 @@ class Glm4MoEToolParser(BaseToolParser):
                     return {
                         "name": self.current_func_name,
                         "arguments": ""
-                    }
+                    }, False
         
         # Check if we can parse any complete argument pairs
         arg_matches = list(self.func_arg_regex.finditer(self.stream_buffer))
@@ -196,7 +201,6 @@ class Glm4MoEToolParser(BaseToolParser):
                     return {
                         "name": None,
                         "arguments": json.dumps(self.current_args)
-                    }
+                    }, False
         
-        return None
-
+        return None, False
