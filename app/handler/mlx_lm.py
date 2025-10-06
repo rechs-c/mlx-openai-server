@@ -61,7 +61,7 @@ class MLXLMHandler:
             
         return thinking_parser, tool_parser
     
-    async def _process_streaming_chunk(self, chunk, thinking_parser, tool_parser) -> AsyncGenerator[str, None]:
+    def _process_streaming_chunk(self, chunk, thinking_parser, tool_parser):
         """
         Process a single chunk through the appropriate parsers.
         
@@ -156,7 +156,7 @@ class MLXLMHandler:
             
             # Process streaming response
             for chunk in response_generator:
-                async for parsed_content in self._process_streaming_chunk(chunk, thinking_parser, tool_parser):
+                for parsed_content in self._process_streaming_chunk(chunk, thinking_parser, tool_parser):
                     yield parsed_content
             
         except asyncio.QueueFull:
