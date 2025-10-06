@@ -190,7 +190,6 @@ class MLXLMHandler:
             }
             response = await self.request_queue.submit(request_id, request_data)
             tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
            
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(tools)
@@ -207,7 +206,7 @@ class MLXLMHandler:
                     "content": None
                 }
                 
-                if enable_thinking and thinking_parser:
+                if thinking_parser:
                     thinking_response, response = thinking_parser.parse(response)
                     parsed_response["reasoning_content"] = thinking_response
                 if tools and tool_parser:
