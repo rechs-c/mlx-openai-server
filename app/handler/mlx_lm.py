@@ -92,48 +92,74 @@ class MLXLMHandler:
             enable_thinking = model_params.get("chat_template_kwargs", {}).get("enable_thinking", None)
 
             if self.model_type == "qwen3":
-                thinking_parser = Qwen3ThinkingParser()
-                if enable_thinking:
-                    for chunk in response_generator:
-                        if chunk:
-                            chunk, is_finish = thinking_parser.parse_stream(chunk.text)
-                            if chunk:
-                                yield chunk
-                            if is_finish:
-                                break
-                tool_parser = Qwen3ToolParser()            
-                if tools and tool_parser:
-                    for chunk in response_generator:
-                        if chunk:
-                            chunk = tool_parser.parse_stream(chunk.text)
-                            if chunk:
-                                yield chunk
+                thinking_parser = Qwen3ThinkingParser() if enable_thinking else None
+                tool_parser = Qwen3ToolParser() if tools else None
+                
+                for chunk in response_generator:
+                    if not chunk:
+                        continue
+                    
+                    text = chunk.text
+                    
+                    # Process thinking first if enabled
+                    if thinking_parser:
+                        parsed_content, is_complete = thinking_parser.parse_stream(text)
+                        if is_complete:
+                            # Thinking phase complete, disable thinking parser
+                            thinking_parser = None
+                        if parsed_content:
+                            yield parsed_content
+                        continue
+                    
+                    # Process tools if enabled
+                    if tool_parser:
+                        parsed_content, is_complete = tool_parser.parse_stream(text)
+                        if parsed_content:
+                            yield parsed_content
+                    else:
+                        # No parsing needed
+                        yield text
+
             elif self.model_type == "glm4_moe":
                 thinking_parser = Glm4MoEThinkingParser()
                 tool_parser = Glm4MoEToolParser()
+                thinking_enabled = True
+                
                 for chunk in response_generator:
-                    if chunk:
-                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
-                        if is_finish:
-                            break
-                    if chunk:
-                        chunk = tool_parser.parse_stream(chunk.text)
-                        if chunk:
-                            yield chunk
+                    if not chunk or not chunk.text:
+                        continue
+                    
+                    text = chunk.text
+                    
+                    # Try thinking parser first if still enabled
+                    if thinking_enabled:
+                        parsed_content, is_complete = thinking_parser.parse_stream(text)
+                        if is_complete:
+                            # Thinking phase complete, switch to tool parsing
+                            thinking_enabled = False
+                        if parsed_content:
+                            yield parsed_content
+                            continue
+                    
+                    # Try tool parser
+                    parsed_content, is_complete = tool_parser.parse_stream(text)
+                    if parsed_content:
+                        yield parsed_content
+
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
                 for chunk in response_generator:
-                    if chunk:
-                        end, chunk = harmony_parser.parse_stream(chunk.text)
-                        if end:
-                            break
-                        if chunk:
-                            yield chunk
+                    if not chunk:
+                        continue
+                    parsed_content, is_complete = harmony_parser.parse_stream(chunk.text)
+                    if is_complete:
+                        break
+                    if parsed_content:
+                        yield parsed_content
+
             else:
                 for chunk in response_generator:
-                    if chunk:
+                    if chunk and chunk.text:
                         yield chunk.text
             
         except asyncio.QueueFull:
