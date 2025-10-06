@@ -7,7 +7,9 @@ from fastapi import HTTPException
 from loguru import logger
 from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
-from app.handler.parser import Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser
+from app.handler.parser import (
+    Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoEThinkingParser, Glm4MoEToolParser   
+)
 from app.utils.errors import create_error_response
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
@@ -106,6 +108,20 @@ class MLXLMHandler:
                             chunk = tool_parser.parse_stream(chunk.text)
                             if chunk:
                                 yield chunk
+            elif self.model_type == "glm4_moe":
+                thinking_parser = Glm4MoEThinkingParser()
+                tool_parser = Glm4MoEToolParser()
+                for chunk in response_generator:
+                    if chunk:
+                        chunk, is_finish = thinking_parser.parse_stream(chunk.text)
+                        if chunk:
+                            yield chunk
+                        if is_finish:
+                            break
+                    if chunk:
+                        chunk = tool_parser.parse_stream(chunk.text)
+                        if chunk:
+                            yield chunk
             elif self.model_type == "gpt_oss":
                 harmony_parser = HarmonyParser()
                 for chunk in response_generator:
