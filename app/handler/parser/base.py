@@ -75,6 +75,10 @@ class BaseToolParser:
         return res, content[start:].strip()
     
     def parse_stream(self, chunk: str):
+        # Handle None chunk
+        if chunk is None:
+            return None
+            
         if self.state == ParseState.NORMAL:
             if chunk.strip() == self.tool_open:
                 self.state = ParseState.next_state(self.state)
