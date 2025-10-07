@@ -61,51 +61,6 @@ class MLXLMHandler:
             
         return thinking_parser, tool_parser
     
-    def _process_streaming_chunk(self, chunk, thinking_parser, tool_parser):
-        """
-        Process a single chunk through the appropriate parsers.
-        
-        Yields:
-            Tuple[str, bool]: (parsed_content, should_end_stream)
-        """
-        if not chunk or not chunk.text:
-            return
-            
-        text = chunk.text
-        
-        # Handle Harmony parser (special case)
-        if isinstance(thinking_parser, HarmonyParser):
-            parsed_content, is_complete = thinking_parser.parse_stream(text)
-            if is_complete:
-                yield None, True  # Signal to end stream
-                return
-            if parsed_content:
-                yield parsed_content, False
-            return
-        
-        # Handle thinking parser first if enabled
-        if thinking_parser:
-            parsed_content, is_complete = thinking_parser.parse_stream(text)
-            if is_complete:
-                # Thinking phase complete, signal to disable thinking parser
-                if parsed_content:
-                    yield parsed_content, True  # Signal to disable thinking parser
-                else:
-                    yield None, True  # Signal to disable thinking parser
-                return
-            if parsed_content:
-                yield parsed_content, False
-                return
-        
-        # Handle tool parser
-        if tool_parser:
-            parsed_content, is_complete = tool_parser.parse_stream(text)
-            if parsed_content:
-                yield parsed_content, False
-        else:
-            # No parsing needed, yield raw text
-            yield text, False
-    
     def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
@@ -158,21 +113,33 @@ class MLXLMHandler:
             
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(tools)
-            
-            # Process streaming response
+
+            # # Process streaming response
             for chunk in response_generator:
-                for parsed_content, should_end_stream in self._process_streaming_chunk(chunk, thinking_parser, tool_parser):
-                    if should_end_stream:
+
+                if not chunk or not chunk.text:
+                    continue
+                    
+                text = chunk.text
+
+                if thinking_parser:
+                    if isinstance(thinking_parser, HarmonyParser):
+                        parsed_content, is_complete = thinking_parser.parse_stream(text)
                         if parsed_content:
                             yield parsed_content
-                        # Check if this is Harmony parser completion (end entire stream)
-                        if isinstance(thinking_parser, HarmonyParser):
-                            return
-                        # Otherwise, disable thinking parser for future chunks
-                        thinking_parser = None
+                        if is_complete:
+                            thinking_parser = None
                         continue
+
+                if tool_parser:
+                    parsed_content, is_complete = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
+                    if is_complete:
+                        tool_parser = None
+                        continue
+
+                yield text, False
 
 
         except asyncio.QueueFull:
