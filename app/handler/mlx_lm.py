@@ -139,7 +139,7 @@ class MLXLMHandler:
                         tool_parser = None
                         continue
 
-                yield text, False
+                yield text
 
 
         except asyncio.QueueFull:
