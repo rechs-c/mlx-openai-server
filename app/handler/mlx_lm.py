@@ -66,7 +66,7 @@ class MLXLMHandler:
         Process a single chunk through the appropriate parsers.
         
         Yields:
-            str: Parsed content from the chunk
+            Tuple[str, bool]: (parsed_content, should_end_stream)
         """
         if not chunk or not chunk.text:
             return
@@ -77,29 +77,34 @@ class MLXLMHandler:
         if isinstance(thinking_parser, HarmonyParser):
             parsed_content, is_complete = thinking_parser.parse_stream(text)
             if is_complete:
-                return  # End of stream
+                yield None, True  # Signal to end stream
+                return
             if parsed_content:
-                yield parsed_content
+                yield parsed_content, False
             return
         
         # Handle thinking parser first if enabled
         if thinking_parser:
             parsed_content, is_complete = thinking_parser.parse_stream(text)
             if is_complete:
-                # Thinking phase complete, disable thinking parser
-                thinking_parser = None
+                # Thinking phase complete, signal to disable thinking parser
+                if parsed_content:
+                    yield parsed_content, True  # Signal to disable thinking parser
+                else:
+                    yield None, True  # Signal to disable thinking parser
+                return
             if parsed_content:
-                yield parsed_content
+                yield parsed_content, False
                 return
         
         # Handle tool parser
         if tool_parser:
             parsed_content, is_complete = tool_parser.parse_stream(text)
             if parsed_content:
-                yield parsed_content
+                yield parsed_content, False
         else:
             # No parsing needed, yield raw text
-            yield text
+            yield text, False
     
     def get_models(self) -> List[Dict[str, Any]]:
         """
@@ -156,9 +161,20 @@ class MLXLMHandler:
             
             # Process streaming response
             for chunk in response_generator:
-                for parsed_content in self._process_streaming_chunk(chunk, thinking_parser, tool_parser):
-                    yield parsed_content
-            
+                for parsed_content, should_end_stream in self._process_streaming_chunk(chunk, thinking_parser, tool_parser):
+                    if should_end_stream:
+                        if parsed_content:
+                            yield parsed_content
+                        # Check if this is Harmony parser completion (end entire stream)
+                        if isinstance(thinking_parser, HarmonyParser):
+                            return
+                        # Otherwise, disable thinking parser for future chunks
+                        thinking_parser = None
+                        continue
+                    if parsed_content:
+                        yield parsed_content
+
+
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
