@@ -123,14 +123,13 @@ class MLXLMHandler:
                 text = chunk.text
 
                 if thinking_parser:
-                    if isinstance(thinking_parser, HarmonyParser):
-                        parsed_content, is_complete = thinking_parser.parse_stream(text)
-                        if parsed_content:
-                            yield parsed_content
-                        if is_complete:
-                            thinking_parser = None
-                        continue
-
+                    parsed_content, is_complete = thinking_parser.parse_stream(text)
+                    if parsed_content:
+                        yield parsed_content
+                    if is_complete:
+                        thinking_parser = None
+                    continue
+                    
                 if tool_parser:
                     parsed_content, is_complete = tool_parser.parse_stream(text)
                     if parsed_content:
