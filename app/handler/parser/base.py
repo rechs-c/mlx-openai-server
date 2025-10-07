@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class BaseThinkingParser:
@@ -8,7 +8,7 @@ class BaseThinkingParser:
         self.thinking_close = thinking_close
         self.is_thinking = False
 
-    def parse(self, content: str) -> str:
+    def parse(self, content: str) -> Tuple[Optional[str], str]:
         if self.thinking_open in content:
             start_thinking = content.find(self.thinking_open)
             end_thinking = content.find(self.thinking_close)
@@ -16,7 +16,15 @@ class BaseThinkingParser:
                 return content[start_thinking + len(self.thinking_open):end_thinking].strip(), content[end_thinking + len(self.thinking_close):].strip()
         return None, content
     
-    def parse_stream(self, chunk: str) -> Tuple[str, bool]:
+    def parse_stream(self, chunk: str) -> Tuple[Optional[Any], bool]:
+        """
+        Parse streaming chunks for thinking content.
+        
+        Returns:
+            Tuple[parsed_content, is_complete]: 
+                - parsed_content: The parsed chunk (could be str, dict, or None)
+                - is_complete: True if thinking section is complete
+        """
         if not self.is_thinking:
             if chunk == self.thinking_open:
                 self.is_thinking = True
@@ -74,18 +82,26 @@ class BaseToolParser:
             start = end_tool + len(self.tool_close)
         return res, content[start:].strip()
     
-    def parse_stream(self, chunk: str):
+    def parse_stream(self, chunk: str) -> Tuple[Optional[Any], bool]:
+        """
+        Parse streaming chunks for tool calls.
+        
+        Returns:
+            Tuple[parsed_content, is_complete]:
+                - parsed_content: The parsed chunk (could be dict or None)
+                - is_complete: True if tool call is complete
+        """
         # Handle None chunk
         if chunk is None:
-            return None
+            return None, False
             
         if self.state == ParseState.NORMAL:
             if chunk.strip() == self.tool_open:
                 self.state = ParseState.next_state(self.state)
                 self.buffer = ""
                 self.current_func = None
-                return None
-            return chunk
+                return None, False
+            return chunk, False
 
         if self.state == ParseState.FOUND_PREFIX:
             self.buffer += chunk
@@ -101,25 +117,25 @@ class BaseToolParser:
                     return {
                         "name": json_output["name"],
                         "arguments": ""
-                    }
+                    }, False
                 except json.JSONDecodeError:
-                    return None
-            return None
+                    return None, False
+            return None, False
 
         if self.state == ParseState.FOUND_FUNC_NAME:
             # Try to parse function arguments
             if chunk.strip() == "arguments":
                 self.state = ParseState.next_state(self.state)
-                return None
-            return None
+                return None, False
+            return None, False
         
         if self.state == ParseState.FOUND_FUNC_ARGS:
             if ":" in chunk:
                 chunk = chunk[:chunk.find(":") + 1: ].lstrip()
                 self.state = ParseState.next_state(self.state)
                 if not chunk:
-                    return None
-            return None
+                    return None, False
+            return None, False
 
         if '}\n' in chunk:
             chunk = chunk[:chunk.find('}\n')]
@@ -130,21 +146,9 @@ class BaseToolParser:
             self.state = ParseState.NORMAL
             self.buffer = ""
             self.current_func = None
-            return None
+            return None, True  # Tool call complete
 
         return {
             "name": None,
             "arguments": chunk
-        }
-       
-        
-        
-            
-                
-            
-        
-                    
-        
-
-        
-            
+        }, False

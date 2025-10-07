@@ -60,7 +60,7 @@ class HarmonyParser:
         self._current_function_name = None
         self._function_arguments = []
     
-    def parse_stream(self, text: Optional[str] = None) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    def parse_stream(self, text: Optional[str] = None) -> Tuple[Optional[Any], bool]:
         """
         Parse streaming text input and return parsing state and extracted content.
         
@@ -68,7 +68,9 @@ class HarmonyParser:
             text: The text chunk to parse, or None for empty chunks
             
         Returns:
-            Tuple of (end_stream_flag, parsed_content_dict)
+            Tuple[parsed_content, is_complete]:
+                - parsed_content: The parsed chunk (could be str, dict, or None)
+                - is_complete: True if stream has ended
             
         Raises:
             Exception: If encoding or parsing fails
@@ -78,11 +80,11 @@ class HarmonyParser:
             logger.debug("End tool chunk detected, marking stream as ended")
             self.end_stream = True
             self.parsing_state = ParsingState.STREAM_ENDED
-            return self.end_stream, None
+            return None, True
             
         # Handle empty or None text
         if not text:
-            return self.end_stream, None
+            return None, self.end_stream
             
         try:
             self.parsing_state = ParsingState.PROCESSING_TOKENS
@@ -144,9 +146,9 @@ class HarmonyParser:
             
         except Exception as e:
             logger.error(f"Error in parse_stream: {e}")
-            return self.end_stream, None
+            return None, self.end_stream
     
-    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[bool, Optional[Union[Dict[str, Any], str]]]:
+    def _build_response(self, current_channel: Optional[str], content_data: Dict[str, Any]) -> Tuple[Optional[Union[Dict[str, Any], str]], bool]:
         """
         Build the appropriate response based on the current channel.
         
@@ -155,18 +157,20 @@ class HarmonyParser:
             content_data: Dictionary containing extracted content from different sources
             
         Returns:
-            Tuple of (end_stream_flag, response_dict)
+            Tuple[parsed_content, is_complete]:
+                - parsed_content: The parsed content (str or dict)
+                - is_complete: Whether the stream has ended
         """
         if not current_channel:
-            return self.end_stream, None
+            return None, self.end_stream
             
         try:
             if current_channel == ChannelType.ANALYSIS.value:
                 reasoning_content = content_data.get('reasoning_content', [])
                 if reasoning_content:
-                    return self.end_stream, {
+                    return {
                         "reasoning_content": "".join(reasoning_content)
-                    }
+                    }, self.end_stream
                     
             elif current_channel == ChannelType.COMMENTARY.value:
                 function_name = content_data.get('function_name')
@@ -179,16 +183,16 @@ class HarmonyParser:
                     response["arguments"] = "".join(function_arguments)
                 
                 if response:
-                    return self.end_stream, response
+                    return response, self.end_stream
                     
             elif current_channel == ChannelType.FINAL.value:
                 contents = content_data.get('contents', [])
                 if contents:
-                    return self.end_stream, "".join(contents)
+                    return "".join(contents), self.end_stream
         except Exception as e:
             logger.error(f"Error building response for channel {current_channel}: {e}")
             
-        return self.end_stream, None
+        return None, self.end_stream
     
     def reset(self) -> None:
         """Reset the parser to initial state for reuse."""
