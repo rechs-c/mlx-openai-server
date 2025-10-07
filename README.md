@@ -50,13 +50,13 @@ This repository hosts a high-performance API server that provides OpenAI-compati
 
 ### 🚀 See It In Action
 
-Check out our [video demonstration](https://youtu.be/D9a3AZSj6v8) to see the server in action! The demo showcases:
+Check out our [video demonstration](https://youtu.be/-h-AwPNvKiw) to see the server in action! The demo showcases:
 
-- Setting up and launching the server
-- Using the OpenAI Python SDK for seamless integration
+- Deploy GLM4.5-Air with `mlx-openai-server` and test code abilities
+
 <p align="center">
-  <a href="https://youtu.be/D9a3AZSj6v8">
-    <img src="https://img.youtube.com/vi/D9a3AZSj6v8/0.jpg" alt="MLX Server OAI-Compatible Demo" width="600">
+  <a href="https://youtu.be/-h-AwPNvKiw">
+    <img src="https://img.youtube.com/vi/-h-AwPNvKiw/0.jpg" alt="MLX Server OAI-Compatible Demo" width="600">
   </a>
 </p>
 
@@ -1368,7 +1368,7 @@ We're thrilled by the incredible community that has grown around this project! J
 #### 📚 Learning Resources
 - **📖 Documentation**: This README and comprehensive API docs
 - **🎥 Video Tutorials**: 
-  - [Setup & Installation Demo](https://youtu.be/D9a3AZSj6v8)
+  - [Setup & Installation Demo](https://youtu.be/-h-AwPNvKiw)
   - [RAG Implementation Demo](https://youtu.be/ANUEZkmR-0s)
 - **📓 Example Notebooks**: Check out our `examples/` directory for practical use cases
 - **🔍 Search Issues**: Your question might already be answered!
@@ -1556,7 +1556,7 @@ Need help with MLX OpenAI Server? We're here to support you! Here are the best w
 1. **Check the documentation** - This README and example notebooks
 2. **Search existing issues** - Your question might already be answered
 3. **Review the examples** - Check the `examples/` directory for use cases
-4. **Watch the demos** - Our [setup video](https://youtu.be/D9a3AZSj6v8), [RAG demo](https://youtu.be/ANUEZkmR-0s), and [GPT-OSS-20B + Opencode integration](https://youtu.be/MTmR_mPSs6k)
+4. **Watch the demos** - Our [setup video](https://youtu.be/-h-AwPNvKiw), [RAG demo](https://youtu.be/ANUEZkmR-0s), and [GPT-OSS-20B + Opencode integration](https://youtu.be/MTmR_mPSs6k)
 
 #### 🐛 Reporting Issues
 - **GitHub Issues**: [Create a new issue](https://github.com/cubist38/mlx-openai-server/issues/new) with:
