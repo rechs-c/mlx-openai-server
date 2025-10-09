@@ -1612,6 +1612,7 @@ We extend our heartfelt gratitude to the following individuals and organizations
 - **[mlx-vlm](https://github.com/Blaizzy/mlx-vlm/tree/main)** - For pioneering multimodal model support within the MLX ecosystem
 - **[mlx-embeddings](https://github.com/Blaizzy/mlx-embeddings)** - For text embeddings generation with optimized memory management
 - **[mflux](https://github.com/filipstrand/mflux)** - For Flux-series image generation models with advanced configurations
+- **[mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper)** - For audio transcription and speech recognition with optimized inference on Apple Silicon 
 - **[mlx-community](https://huggingface.co/mlx-community)** - For curating and maintaining a diverse collection of high-quality MLX models
 
 ### 🤝 Open Source Community
