@@ -1,6 +1,8 @@
 import json
 import random
 import time
+import base64
+import numpy as np
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union, AsyncGenerator, Annotated
 
@@ -14,7 +16,7 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
                                 ChatCompletionRequest, ChatCompletionResponse,
                                 Choice, ChoiceDeltaFunctionCall,
-                                ChoiceDeltaToolCall, Delta, Embedding,
+                                ChoiceDeltaToolCall, Delta, EmbeddingResponseData,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
                                 StreamingChoice, ImageGenerationRequest,
@@ -97,7 +99,7 @@ async def embeddings(request: EmbeddingRequest, raw_request: Request):
 
     try:
         embeddings = await handler.generate_embeddings_response(request)
-        return create_response_embeddings(embeddings, request.model)
+        return create_response_embeddings(embeddings, request.model, request.encoding_format)
     except Exception as e:
         logger.error(f"Error processing embedding request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -179,10 +181,15 @@ async def create_audio_transcriptions(
         logger.error(f"Error processing transcription request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
-def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
+def create_response_embeddings(embeddings: List[float], model: str, encoding_format: str = "float") -> EmbeddingResponse:
     embeddings_response = []
     for index, embedding in enumerate(embeddings):
-        embeddings_response.append(Embedding(embedding=embedding, index=index))
+        if encoding_format == "base64":
+            # Convert list/array to bytes before base64 encoding
+            embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
+            embeddings_response.append(EmbeddingResponseData(embedding=base64.b64encode(embedding_bytes).decode('utf-8'), index=index))
+        else:
+            embeddings_response.append(EmbeddingResponseData(embedding=embedding, index=index))
     return EmbeddingResponse(data=embeddings_response, model=model)
 
 def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_final: bool = False, finish_reason: Optional[str] = "stop", chat_id: Optional[str] = None, created_time: Optional[int] = None) -> ChatCompletionChunk:
