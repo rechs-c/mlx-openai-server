@@ -1,14 +1,12 @@
-from typing import Any, Dict, List, Optional, Union
-from enum import Enum
 import random
+from enum import Enum
 from app.core.queue import T
 from fastapi import UploadFile
 
-from pydantic import ConfigDict, model_validator
-from typing import ClassVar
+from typing import ClassVar, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
-from typing_extensions import Literal
+from pydantic import BaseModel, Field, validator, ConfigDict,model_validator
+from typing_extensions import Literal, TypeAlias
 from loguru import logger
 
 
@@ -64,34 +62,37 @@ class ErrorResponse(OpenAIBaseModel):
     code: int = Field(..., description="The error code.")
 
 # Common models used in both streaming and non-streaming contexts
-class ImageUrl(OpenAIBaseModel):
+class ImageURL(OpenAIBaseModel):
     """
     Represents an image URL in a message.
     """
-    url: str = Field(..., description="The image URL.")
+    url: str = Field(..., description="Either a URL of the image or the base64 encoded image data.")
 
-class AudioInput(OpenAIBaseModel):
-    """
-    Represents an audio URL in a message.
-    """
+class ChatCompletionContentPartImage(OpenAIBaseModel):
+    image_url: Optional[ImageURL] = Field(None, description="The image URL object, if type is 'image_url'.")
+    type: Literal["image_url"] = Field(..., description="The type of content, e.g., 'image_url'.")
+
+class VideoURL(OpenAIBaseModel):
+    url: str = Field(..., description="Either a URL of the video or the base64 encoded video data.")
+    type: Literal["video_url"] = Field(..., description="The type of content, e.g., 'video_url'.")
+
+class ChatCompletionContentPartVideo(OpenAIBaseModel):
+    video_url: Optional[VideoURL] = Field(None, description="The video URL object, if type is 'video_url'.")
+    type: Literal["video_url"] = Field(..., description="The type of content, e.g., 'video_url'.")
+
+class InputAudio(OpenAIBaseModel):
     data: str = Field(..., description="The audio data.")
     format: Literal["mp3", "wav"] = Field(..., description="The audio format.")
 
-class AudioContentItem(OpenAIBaseModel):
-    """
-    Represents an audio content item in a message.
-    """
-    type: str = Field(..., description="The type of content, e.g., 'input_audio'.")
-    input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
+class ChatCompletionContentPartInputAudio(OpenAIBaseModel):
+    input_audio: Optional[InputAudio] = Field(None, description="The audio input object, if type is 'input_audio'.")
+    type: Literal["input_audio"] = Field(..., description="The type of content, e.g., 'input_audio'.")
 
-class MultimodalContentItem(OpenAIBaseModel):
-    """
-    Represents a single content item in a message (text, image, or audio).
-    """
-    type: str = Field(..., description="The type of content, e.g., 'text', 'image_url', or 'input_audio'.")
-    text: Optional[str] = Field(None, description="The text content, if type is 'text'.")
-    image_url: Optional[ImageUrl] = Field(None, description="The image URL object, if type is 'image_url'.")
-    input_audio: Optional[AudioInput] = Field(None, description="The audio input object, if type is 'input_audio'.")
+class ChatCompletionContentPartText(OpenAIBaseModel):
+    text: str = Field(..., description="The text content, if type is 'text'.")
+    type: Literal["text"] = Field(..., description="The type of content, e.g., 'text'.")
+
+ChatCompletionContentPart: TypeAlias = Union[ChatCompletionContentPartImage, ChatCompletionContentPartVideo, ChatCompletionContentPartInputAudio, ChatCompletionContentPartText]
 
 class PromptTokenUsageInfo(OpenAIBaseModel):
     cached_tokens: Optional[int] = None
@@ -122,7 +123,7 @@ class Message(OpenAIBaseModel):
     """
     Represents a message in a chat completion.
     """
-    content: Union[str, List[MultimodalContentItem], None] = Field(None, description="The content of the message, either text or a list of content items (vision, audio, or multimodal).")
+    content: Union[str, List[ChatCompletionContentPart]] = Field(..., description="The content of the message, either text or a list of content items (vision, audio, or multimodal).")
     refusal: Optional[str] = Field(None, description="The refusal reason, if any.")
     role: Literal["system", "user", "assistant", "tool"] = Field(..., description="The role of the message sender.")
     function_call: Optional[FunctionCall] = Field(None, description="The function call, if any.")
@@ -297,14 +298,16 @@ class EmbeddingRequest(OpenAIBaseModel):
     Model for embedding requests.
     """
     model: str = Field(Config.EMBEDDING_MODEL, description="The embedding model to use.")
-    input: List[str] = Field(..., description="List of text inputs for embedding.")
+    input: Union[List[str], str] = Field(..., description="List of text inputs for embedding or the image file to embed.")
     image_url: Optional[str] = Field(default=None, description="Image URL to embed.")
+    user: Optional[str] = Field(default=None, description="User identifier.")
+    encoding_format: Literal["float", "base64"] = Field(default="float", description="The encoding format for the embedding.")
 
-class Embedding(OpenAIBaseModel):
+class EmbeddingResponseData(OpenAIBaseModel):
     """
     Represents an embedding object in an embedding response.
     """
-    embedding: List[float] = Field(..., description="The embedding vector.")
+    embedding: Union[List[float], str] = Field(..., description="The embedding vector or the base64 encoded embedding.")
     index: int = Field(..., description="The index of the embedding in the list.")
     object: str = Field(default="embedding", description="The object type, always 'embedding'.")
 
@@ -313,8 +316,9 @@ class EmbeddingResponse(OpenAIBaseModel):
     Represents an embedding response.
     """
     object: str = Field("list", description="The object type, always 'list'.")
-    data: List[Embedding] = Field(..., description="List of embedding objects.")
+    data: List[EmbeddingResponseData] = Field(..., description="List of embedding objects.")
     model: str = Field(..., description="The model used for embedding.")
+    usage: Optional[UsageInfo] = Field(default=None, description="The usage of the embedding.")
 
 class Model(OpenAIBaseModel):
     """
