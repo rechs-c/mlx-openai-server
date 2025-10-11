@@ -222,6 +222,8 @@ class MLXLMHandler:
         try:
             # Create a unique request ID
             request_id = f"embeddings-{uuid.uuid4()}"
+            if isinstance(request.input, str):
+                request.input = [request.input]
             request_data = {
                 "type": "embeddings",
                 "input": request.input,

@@ -73,7 +73,6 @@ class MLXEmbeddingsHandler:
             request_data = {
                 "type": "embeddings",
                 "input": request.input,
-                "model": request.model,
                 "max_length": getattr(request, 'max_length', 512)
             }
 

@@ -2,6 +2,7 @@ import json
 import random
 import time
 import base64
+import numpy as np
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union, AsyncGenerator, Annotated
 
@@ -184,7 +185,9 @@ def create_response_embeddings(embeddings: List[float], model: str, encoding_for
     embeddings_response = []
     for index, embedding in enumerate(embeddings):
         if encoding_format == "base64":
-            embeddings_response.append(EmbeddingResponseData(embedding=base64.b64encode(embedding).decode('utf-8'), index=index))
+            # Convert list/array to bytes before base64 encoding
+            embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
+            embeddings_response.append(EmbeddingResponseData(embedding=base64.b64encode(embedding_bytes).decode('utf-8'), index=index))
         else:
             embeddings_response.append(EmbeddingResponseData(embedding=embedding, index=index))
     return EmbeddingResponse(data=embeddings_response, model=model)

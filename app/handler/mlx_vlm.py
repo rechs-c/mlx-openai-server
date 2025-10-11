@@ -252,6 +252,8 @@ class MLXVLMHandler:
                 image_result = await self.image_processor.process_image_url(image_url, resize=not self.disable_auto_resize)
                 images.append(image_result["path"])
             request_id = f"embeddings-{uuid.uuid4()}"
+            if isinstance(request.input, str):
+                request.input = [request.input]
             request_data = {
                 "type": "embeddings",
                 "input": request.input,
