@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(), 
     install_requires=[
-        "mlx-vlm==0.3.3",
+        "mlx-vlm==0.3.4",
         "mlx-lm==0.28.2",
         "mlx-whisper==0.4.3",
         "mlx-embeddings==0.0.4",
