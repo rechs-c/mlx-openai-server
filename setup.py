@@ -15,6 +15,7 @@ setup(
     install_requires=[
         "mlx-vlm==0.3.4",
         "mlx-lm==0.28.2",
+        "torchvision==0.23.0",
         "mlx-whisper==0.4.3",
         "mlx-embeddings==0.0.4",
         "fastapi==0.115.14",
