@@ -1,10 +1,12 @@
 import json
 import random
 import time
+import base64
+import numpy as np
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional, Union, AsyncGenerator
+from typing import Any, Dict, List, Optional, Union, AsyncGenerator, Annotated
 
-from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
@@ -14,11 +16,11 @@ from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
                                 ChatCompletionRequest, ChatCompletionResponse,
                                 Choice, ChoiceDeltaFunctionCall,
-                                ChoiceDeltaToolCall, Delta, Embedding,
+                                ChoiceDeltaToolCall, Delta, EmbeddingResponseData,
                                 EmbeddingRequest, EmbeddingResponse,
                                 FunctionCall, Message, Model, ModelsResponse,
                                 StreamingChoice, ImageGenerationRequest,
-                                ImageEditRequest, ImageSize, ResponseFormat)
+                                ImageEditRequest, TranscriptionRequest)
 from app.utils.errors import create_error_response
 
 router = APIRouter()
@@ -97,7 +99,7 @@ async def embeddings(request: EmbeddingRequest, raw_request: Request):
 
     try:
         embeddings = await handler.generate_embeddings_response(request)
-        return create_response_embeddings(embeddings, request.model)
+        return create_response_embeddings(embeddings, request.model, request.encoding_format)
     except Exception as e:
         logger.error(f"Error processing embedding request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -128,18 +130,7 @@ async def image_generations(request: ImageGenerationRequest, raw_request: Reques
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 @router.post("/v1/images/edits")
-async def create_image_edit(
-    raw_request: Request,
-    image: UploadFile = File(...),
-    prompt: str = Form(...),
-    model: Optional[str] = Form(default="flux-kontext"),
-    negative_prompt: Optional[str] = Form(default=None),
-    guidance_scale: Optional[float] = Form(default=2.5),
-    response_format: Optional[str] = Form(default="b64_json"),
-    seed: Optional[int] = Form(default=42),
-    size: Optional[str] = Form(default=None),
-    steps: Optional[int] = Form(default=4)
-) -> Any:
+async def create_image_edit(request: Annotated[ImageEditRequest, Form()], raw_request: Request):
     """Handle image editing requests with dynamic provider routing."""
 
     handler = raw_request.app.state.handler
@@ -157,46 +148,48 @@ async def create_image_edit(
             status_code=400
         )
     try:
-        # Convert string values to appropriate types
-        parsed_size = None
-        if size:
-            try:
-                parsed_size = ImageSize(size)
-            except ValueError:
-                parsed_size = None
-        
-        parsed_response_format = ResponseFormat.B64_JSON
-        if response_format:
-            try:
-                parsed_response_format = ResponseFormat(response_format)
-            except ValueError:
-                parsed_response_format = ResponseFormat.B64_JSON
-        
-        # Create ImageEditRequest object from form data
-        image_edit_request = ImageEditRequest(
-            image=image,
-            prompt=prompt,
-            model=model,
-            negative_prompt=negative_prompt,
-            guidance_scale=guidance_scale,
-            response_format=parsed_response_format,
-            seed=seed,
-            size=parsed_size,
-            steps=steps
-        )
-        
-        image_response = await handler.edit_image(image_edit_request)
+        image_response = await handler.edit_image(request)
         return image_response
     except Exception as e:
         logger.error(f"Error processing image edit request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
+@router.post("/v1/audio/transcriptions")
+async def create_audio_transcriptions(
+    request: Annotated[TranscriptionRequest, Form()],
+    raw_request: Request
+):
+    """Handle audio transcription requests."""
+    try:
+        handler = raw_request.app.state.handler
+        if handler is None:
+            return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
+        
+        if request.stream:
 
+            # procoess the request before sending to the handler
+            request_data = await handler._prepare_transcription_request(request)
+            return StreamingResponse(
+                handler.generate_transcription_stream_from_data(request_data, request.response_format),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+            )
+        else:
+            transcription_response = await handler.generate_transcription_response(request)
+            return transcription_response
+    except Exception as e:
+        logger.error(f"Error processing transcription request: {str(e)}", exc_info=True)
+        return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     
-def create_response_embeddings(embeddings: List[float], model: str) -> EmbeddingResponse:
+def create_response_embeddings(embeddings: List[float], model: str, encoding_format: str = "float") -> EmbeddingResponse:
     embeddings_response = []
     for index, embedding in enumerate(embeddings):
-        embeddings_response.append(Embedding(embedding=embedding, index=index))
+        if encoding_format == "base64":
+            # Convert list/array to bytes before base64 encoding
+            embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
+            embeddings_response.append(EmbeddingResponseData(embedding=base64.b64encode(embedding_bytes).decode('utf-8'), index=index))
+        else:
+            embeddings_response.append(EmbeddingResponseData(embedding=embedding, index=index))
     return EmbeddingResponse(data=embeddings_response, model=model)
 
 def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_final: bool = False, finish_reason: Optional[str] = "stop", chat_id: Optional[str] = None, created_time: Optional[int] = None) -> ChatCompletionChunk:
@@ -258,7 +251,6 @@ def create_response_chunk(chunk: Union[str, Dict[str, Any]], model: str, is_fina
         model=model,
         choices=[StreamingChoice(index=0, delta=delta, finish_reason=None)]
     )
-
 
 async def handle_stream_response(generator: AsyncGenerator, model: str):
     """Handle streaming response generation (OpenAI-compatible)."""

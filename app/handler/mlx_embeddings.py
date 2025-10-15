@@ -68,16 +68,17 @@ class MLXEmbeddingsHandler:
         try:
             # Create a unique request ID
             request_id = f"embeddings-{uuid.uuid4()}"
+            if isinstance(request.input, str):
+                request.input = [request.input]
             request_data = {
                 "type": "embeddings",
                 "input": request.input,
-                "model": request.model,
                 "max_length": getattr(request, 'max_length', 512)
             }
 
             # Submit to the request queue
             response = await self.request_queue.submit(request_id, request_data)
-
+            
             return response
 
         except Exception as e:

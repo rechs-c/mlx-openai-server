@@ -1,9 +1,6 @@
 from http import HTTPStatus
 from typing import Union
 
-from app.schemas.openai import ErrorResponse
-
-
 def create_error_response(
     message: str,
     err_type: str = "internal_error",

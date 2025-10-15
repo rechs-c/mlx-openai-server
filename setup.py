@@ -5,7 +5,7 @@ from app import __version__
 setup(
     name="mlx-openai-server",
     url="https://github.com/cubist38/mlx-openai-server",
-    author="Huy Vuong",
+    author="Gia-Huy Vuong",
     author_email="cubist38@gmail.com",
     version=__version__,
     description="A high-performance API server that provides OpenAI-compatible endpoints for MLX models. Built with Python and FastAPI, it enables efficient, scalable, and user-friendly local deployment of MLX-based multimodal models with an OpenAI-compatible interface. Supports text, vision, and audio processing capabilities. Perfect for developers looking to run MLX models locally while maintaining compatibility with existing OpenAI-based applications.",
@@ -15,13 +15,16 @@ setup(
     install_requires=[
         "mlx-vlm @ file:///var/ai/mlx-openai-server/mlx-vlm",
         "mlx-lm @ file:///var/ai/mlx-openai-server/mlx-lm",
+        "torchvision==0.23.0",
+        "mlx-whisper==0.4.3",
         "mlx-embeddings @ file:///var/ai/mlx-openai-server/mlx-embeddings",
         "fastapi==0.115.14",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",
         "click==8.2.1",
         "loguru==0.7.3",
-        "outlines==1.1.0",
+        "outlines==1.1.1",
+        "librosa==0.11.0",
         "openai-harmony==0.0.4",
         "python-multipart==0.0.20"
     ],
