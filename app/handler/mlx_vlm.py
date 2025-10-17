@@ -9,11 +9,11 @@ import gc
 from fastapi import HTTPException
 from loguru import logger
 
-from app.core import ImageProcessor, AudioProcessor
 from app.core.queue import RequestQueue
 from app.models.mlx_vlm import MLX_VLM
-from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
+from app.core import ImageProcessor, AudioProcessor, VideoProcessor
 from app.utils.errors import create_error_response
+from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest, ChatCompletionContentPart, ChatCompletionContentPartText, ChatCompletionContentPartImage, ChatCompletionContentPartInputAudio, ChatCompletionContentPartVideo
 
 class MLXVLMHandler:
     """
@@ -35,6 +35,7 @@ class MLXVLMHandler:
         self.model = MLX_VLM(model_path)
         self.image_processor = ImageProcessor(max_workers)
         self.audio_processor = AudioProcessor(max_workers)
+        self.video_processor = VideoProcessor(max_workers)
         self.disable_auto_resize = disable_auto_resize
         self.model_created = int(time.time())  # Store creation time when model is loaded
         
@@ -283,6 +284,8 @@ class MLXVLMHandler:
             await self.image_processor.cleanup()
         if hasattr(self, 'audio_processor'):
             await self.audio_processor.cleanup()
+        if hasattr(self, 'video_processor'):
+            await self.video_processor.cleanup()
 
     async def cleanup(self):
         """
@@ -433,6 +436,51 @@ class MLXVLMHandler:
             content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
             raise HTTPException(status_code=400, detail=content)
 
+    async def _reformat_multimodal_content_part(self, content_part: ChatCompletionContentPart) -> Tuple[Dict[str, Any], bool]:
+        """
+        Reformat a multimodal message content part into a dictionary.
+        """
+        if isinstance(content_part, ChatCompletionContentPartImage):
+            image_url = content_part.image_url.url
+            image_path = await self.image_processor.process_image_url(image_url, resize=not self.disable_auto_resize)
+            return {
+                "content_part": {
+                    "type": "image",
+                    "image": image_path
+                },
+                "path": image_path
+            }
+
+        if isinstance(content_part, ChatCompletionContentPartInputAudio):
+            audio_url = content_part.input_audio.data
+            audio_path = await self.audio_processor.process_audio_url(audio_url)
+            return {
+                "content_part": {
+                    "type": "audio",
+                    "audio": audio_path
+                },
+                "path": audio_path
+            }
+
+        if isinstance(content_part, ChatCompletionContentPartVideo):
+            video_url = content_part.video_url.url
+            video_path = await self.video_processor.process_video_url(video_url)
+            return {
+                "content_part": {
+                    "type": "video",
+                    "video": video_path,
+                },
+                "path": video_path
+            }
+
+        return {
+            "content_part": {
+                "type": "text",
+                "text": content_part.text
+            }
+        }
+
+
     async def _prepare_multimodal_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, Any]], List[str], List[str], Dict[str, Any]]:
         """
         Prepare the multimodal request by processing messages with text, images, and audio.
@@ -451,11 +499,13 @@ class MLXVLMHandler:
                 - List of processed chat messages
                 - List of processed image paths
                 - List of processed audio paths
+                - List of processed video paths
                 - Dictionary of model parameters
         """
         chat_messages = []
-        image_urls = []
-        audio_urls = []
+        images = []
+        audios = []
+        videos = []
 
         try:
             # Process each message in the request
@@ -474,63 +524,23 @@ class MLXVLMHandler:
                         
                     # Case 2: Content is a list of dictionaries or objects
                     if isinstance(message.content, list):
-                        # Initialize containers for this message
-                        texts = []
-                        images = []
-                        audios = []                 
-                        # Process each content item in the list
-                        for item in message.content:
-                            if item.type == "text":
-                                text = getattr(item, "text", "").strip()
-                                if text:
-                                    texts.append(text)
-                                    
-                            elif item.type == "image_url":
-                                url = getattr(item, "image_url", None)
-                                if url and hasattr(url, "url"):
-                                    url = url.url
-                                    # Validate URL
-                                    self._validate_image_url(url)
-                                    images.append(url)
-                                    
-                            elif item.type == "input_audio":
-                                audio_input = getattr(item, "input_audio", None)
-                                if audio_input and hasattr(audio_input, "data"):
-                                    audio_data = audio_input.data
-                                    audio_format = getattr(audio_input, "format", "mp3")
-                                    # Create data URL from audio data
-                                    audio_url = f"data:audio/{audio_format};base64,{audio_data}"
-                                    # Validate audio data
-                                    self._validate_audio_data(audio_url)
-                                    audios.append(audio_url)
+                        formatted_content_parts = []
 
-                        # Add collected media to global lists
-                        if images:
-                            image_urls.extend(images)
-                            # Validate constraints
-                            if len(images) > 4:
-                                content = create_error_response("Too many images in a single message (max: 4)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
-                                raise HTTPException(status_code=400, detail=content)
-                        
-                        if audios:
-                            audio_urls.extend(audios)
-                            # Validate constraints
-                            if len(audios) > 2:
-                                content = create_error_response("Too many audio files in a single message (max: 2)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
-                                raise HTTPException(status_code=400, detail=content)
-                            
-                        # Add text content if available, otherwise use empty string
-                        if texts:
-                            chat_messages.append({"role": "user", "content": " ".join(texts)})
-                        else:
-                           chat_messages.append({"role": "user", "content": ""})
+                        for content_part in message.content:
+                            formatted_content_part = await self._reformat_multimodal_content_part(content_part)
+                            if isinstance(content_part, ChatCompletionContentPartImage):
+                                images.append(formatted_content_part["path"])
+                            elif isinstance(content_part, ChatCompletionContentPartInputAudio):
+                                audios.append(formatted_content_part["path"])
+                            elif isinstance(content_part, ChatCompletionContentPartVideo):
+                                videos.append(formatted_content_part["path"])
+
+                            formatted_content_parts.append(formatted_content_part["content_part"])
+                            chat_messages.append({"role": "user", "content": formatted_content_parts})
+
                     else:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
-
-            # Process images and audio files
-            image_paths = await self.image_processor.process_image_urls(image_urls, resize=not self.disable_auto_resize)
-            audio_paths = await self.audio_processor.process_audio_urls(audio_urls)
 
             # Get model parameters from the request
             temperature = request.temperature or 0.7
