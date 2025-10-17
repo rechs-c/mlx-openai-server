@@ -42,6 +42,9 @@ class MLX_VLM:
             self.config, "video_token_index"
         )
 
+    def get_model_type(self):
+        return self.config.model_type
+
     def __call__(
         self, 
         messages: List[Dict[str, str]], 
@@ -77,7 +80,7 @@ class MLX_VLM:
             tokenize=False,
             add_generation_prompt=True
         )
-
+        
         image_inputs, video_inputs = process_vision_info(messages)
 
         inputs = self.processor(
@@ -88,18 +91,19 @@ class MLX_VLM:
             return_tensors="pt"
         )
 
-        kwargs = {
+        model_params = {
             "input_ids": mx.array(inputs["input_ids"]),
-            "mask": mx.array(inputs["attention_mask"])
+            "mask": mx.array(inputs["attention_mask"]),
+            **kwargs
         }
 
         if images:
-            kwargs["pixel_values"] = mx.array(inputs["pixel_values"])
-            kwargs["image_grid_thw"] = mx.array(inputs["image_grid_thw"])
+            model_params["pixel_values"] = mx.array(inputs["pixel_values"])
+            model_params["image_grid_thw"] = mx.array(inputs["image_grid_thw"])
 
         if videos:
-            kwargs["pixel_values"] = mx.array(inputs["pixel_values_videos"])
-            kwargs["video_grid_thw"] = mx.array(inputs["video_grid_thw"])
+            model_params["pixel_values"] = mx.array(inputs["pixel_values_videos"])
+            model_params["video_grid_thw"] = mx.array(inputs["video_grid_thw"])
 
         prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
 
@@ -109,7 +113,7 @@ class MLX_VLM:
                 self.processor,
                 prompt=text,
                 prompt_cache=prompt_cache,
-                **kwargs
+                **model_params
             )
         else:
             return generate(
@@ -117,14 +121,14 @@ class MLX_VLM:
                 self.processor,
                 prompt=text,
                 prompt_cache=prompt_cache,
-                **kwargs
+                **model_params
             )
 
 
 if __name__ == "__main__":
     image_path = "examples/images/attention.png"
     video_path = "examples/images/demo.mp4"
-    model_path = "mlx-community/Qwen3-VL-30B-A3B-Thinking-8bit"
+    model_path = "mlx-community/Qwen3-VL-4B-Thinking-4bit"
     model = MLX_VLM(model_path)
     messages = [
         {
@@ -141,6 +145,6 @@ if __name__ == "__main__":
             ]
         }
     ]
-    response = model(messages, images=[image_path], max_tokens = 1024, stream=True)
+    response = model(messages, stream=True)
     for chunk in response:
-        print(chunk, end="", flush=True)
+        print(chunk, end="\n", flush=True)

@@ -2,15 +2,18 @@ import asyncio
 import base64
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
-from http import HTTPStatus
 import gc
 
-from fastapi import HTTPException
 from loguru import logger
+from http import HTTPStatus
+from fastapi import HTTPException
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.queue import RequestQueue
 from app.models.mlx_vlm import MLX_VLM
+from app.handler.parser import (
+    Qwen3ThinkingParser, Qwen3ToolParser   
+)
 from app.core import ImageProcessor, AudioProcessor, VideoProcessor
 from app.utils.errors import create_error_response
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest, ChatCompletionContentPart, ChatCompletionContentPartText, ChatCompletionContentPartImage, ChatCompletionContentPartInputAudio, ChatCompletionContentPartVideo
@@ -38,6 +41,9 @@ class MLXVLMHandler:
         self.video_processor = VideoProcessor(max_workers)
         self.disable_auto_resize = disable_auto_resize
         self.model_created = int(time.time())  # Store creation time when model is loaded
+        self.model_type = self.model.get_model_type()
+
+        print("MODEL TYPE: ", self.model_type)
         
         # Initialize request queue for multimodal and text tasks
         # We use the same queue for both multimodal and text tasks for simplicity
@@ -58,6 +64,22 @@ class MLXVLMHandler:
             "created": self.model_created,
             "owned_by": "local"
         }]
+    
+    def _create_parsers(self, tools: Optional[List] = None) -> Tuple[Optional[Any], Optional[Any]]:
+        """
+        Create appropriate parsers based on model type and available tools.
+        
+        Returns:
+            Tuple of (thinking_parser, tool_parser)
+        """
+        thinking_parser = None
+        tool_parser = None
+        
+        if self.model_type == "qwen3_vl":
+            thinking_parser = Qwen3ThinkingParser()
+            tool_parser = Qwen3ToolParser() if tools else None
+            
+        return thinking_parser, tool_parser
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""
@@ -91,12 +113,13 @@ class MLXVLMHandler:
         request_id = f"multimodal-{uuid.uuid4()}"
         
         try:
-            chat_messages, image_paths, audio_paths, model_params = await self._prepare_multimodal_request(request)
+            chat_messages, image_paths, audio_paths, video_paths, model_params = await self._prepare_multimodal_request(request)
             
             # Create a request data object
             request_data = {
                 "images": image_paths,
                 "audios": audio_paths,
+                "videos": video_paths,
                 "messages": chat_messages,
                 "stream": True,
                 **model_params
@@ -104,12 +127,35 @@ class MLXVLMHandler:
             
             # Submit to the multimodal queue and get the generator
             response_generator = await self.request_queue.submit(request_id, request_data)
+            tools = model_params.get("tools", None)
+            
+            # Create appropriate parsers for this model type
+            thinking_parser, tool_parser = self._create_parsers(tools)
             
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
-                if chunk:
-                    chunk = chunk.text
-                    yield chunk
+                if not chunk or not chunk.text:
+                    continue
+                    
+                text = chunk.text
+
+                if thinking_parser:
+                    parsed_content, is_complete = thinking_parser.parse_stream(text)
+                    if parsed_content:
+                        yield parsed_content
+                    if is_complete:
+                        thinking_parser = None
+                    continue
+                    
+                if tool_parser:
+                    parsed_content, is_complete = tool_parser.parse_stream(text)
+                    if parsed_content:
+                        yield parsed_content
+                    if is_complete:
+                        tool_parser = None
+                        continue
+
+                yield text
         
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
@@ -137,20 +183,45 @@ class MLXVLMHandler:
             request_id = f"multimodal-{uuid.uuid4()}"
             
             # Prepare the multimodal request
-            chat_messages, image_paths, audio_paths, model_params = await self._prepare_multimodal_request(request)
+            chat_messages, image_paths, audio_paths, video_paths, model_params = await self._prepare_multimodal_request(request)
             
             # Create a request data object
             request_data = {
                 "images": image_paths,
                 "audios": audio_paths,
+                "videos": video_paths,
                 "messages": chat_messages,
                 "stream": False,
                 **model_params
             }
         
             response = await self.request_queue.submit(request_id, request_data)
+            tools = model_params.get("tools", None)
             
-            return response
+            # Create appropriate parsers for this model type
+            thinking_parser, tool_parser = self._create_parsers(tools)
+            
+            # Handle qwen3_vl model with thinking/tool parsing
+            if self.model_type == "qwen3_vl":
+                parsed_response = {
+                    "reasoning_content": None,
+                    "tool_calls": None,
+                    "content": None
+                }
+                
+                response_text = response.text
+                
+                if thinking_parser:
+                    thinking_response, response_text = thinking_parser.parse(response_text)
+                    parsed_response["reasoning_content"] = thinking_response
+                if tools and tool_parser:
+                    tool_response, response_text = tool_parser.parse(response_text)
+                    parsed_response["tool_calls"] = tool_response
+                parsed_response["content"] = response_text
+                
+                return parsed_response
+
+            return response.text
             
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
@@ -159,79 +230,6 @@ class MLXVLMHandler:
         except Exception as e:
             logger.error(f"Error in multimodal response generation: {str(e)}")
             content = create_error_response(f"Failed to generate multimodal response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            raise HTTPException(status_code=500, detail=content)
-
-    async def generate_text_stream(self, request: ChatCompletionRequest):
-        """
-        Generate a streaming response for text-only chat completion requests.
-        Uses the request queue for handling concurrent requests.
-        
-        Args:
-            request: ChatCompletionRequest object containing the messages.
-        
-        Returns:
-            AsyncGenerator: Yields response chunks.
-        """
-        request_id = f"text-{uuid.uuid4()}"
-        
-        try:
-            chat_messages, model_params = await self._prepare_text_request(request)
-            request_data = {
-                "messages": chat_messages,
-                "stream": True,
-                **model_params
-            }
-            response_generator = await self.request_queue.submit(request_id, request_data)
-            
-            for chunk in response_generator:
-                if chunk:
-                    yield chunk.text
-            
-        except asyncio.QueueFull:
-            logger.error("Too many requests. Service is at capacity.")
-            content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
-            raise HTTPException(status_code=429, detail=content)
-        except Exception as e:
-            logger.error(f"Error in text stream generation for request {request_id}: {str(e)}")
-            content = create_error_response(f"Failed to generate text stream: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            raise HTTPException(status_code=500, detail=content)
-
-    async def generate_text_response(self, request: ChatCompletionRequest):
-        """
-        Generate a complete response for text-only chat completion requests.
-        Uses the request queue for handling concurrent requests.
-        
-        Args:
-            request: ChatCompletionRequest object containing the messages.
-        
-        Returns:
-            str: Complete response.
-        """
-        try:
-            # Create a unique request ID
-            request_id = f"text-{uuid.uuid4()}"
-            
-            # Prepare the text request
-            chat_messages, model_params = await self._prepare_text_request(request)
-            
-            # Create a request data object
-            request_data = {
-                "messages": chat_messages,
-                "stream": False,
-                **model_params
-            }
-            
-            # Submit to the multimodal queue (reusing the same queue for text requests)
-            response = await self.request_queue.submit(request_id, request_data)
-            return response
-            
-        except asyncio.QueueFull:
-            logger.error("Too many requests. Service is at capacity.")
-            content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
-            raise HTTPException(status_code=429, detail=content)
-        except Exception as e:
-            logger.error(f"Error in text response generation: {str(e)}")
-            content = create_error_response(f"Failed to generate text response: {str(e)}", "server_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             raise HTTPException(status_code=500, detail=content)
         
     async def generate_embeddings_response(self, request: EmbeddingRequest):
@@ -348,9 +346,6 @@ class MLXVLMHandler:
                 stream=stream,
                 **model_params
             )
-
-            print(response)
-
             # Force garbage collection after model inference
             gc.collect()
             return response
@@ -373,70 +368,6 @@ class MLXVLMHandler:
         return {
             "queue_stats": queue_stats,
         }
-
-    async def _prepare_text_request(self, request: ChatCompletionRequest) -> Tuple[List[Dict[str, str]], Dict[str, Any]]:
-        """
-        Prepare a text request by parsing model parameters and verifying the format of messages.
-        
-        Args:
-            request: ChatCompletionRequest object containing the messages.
-        
-        Returns:
-            Tuple containing the formatted chat messages and model parameters.
-        """
-        chat_messages = []
-
-        try:
-            
-            # Convert Message objects to dictionaries with 'role' and 'content' keys
-            chat_messages = []
-            for message in request.messages:
-                # Only handle simple string content for text-only requests
-                if not isinstance(message.content, str):
-                    logger.warning(f"Non-string content in text request will be skipped: {message.role}")
-                    continue
-                
-                chat_messages.append({
-                    "role": message.role,
-                    "content": message.content
-                })
-
-            # Extract model parameters, filtering out None values
-            model_params = {
-                k: v for k, v in {
-                    "max_tokens": request.max_tokens,
-                    "temperature": request.temperature,
-                    "top_p": request.top_p,
-                    "frequency_penalty": request.frequency_penalty, 
-                    "presence_penalty": request.presence_penalty,
-                    "stop": request.stop,
-                    "n": request.n,
-                    "seed": request.seed
-                }.items() if v is not None
-            }
-
-            # Handle response format
-            if request.response_format and request.response_format.get("type") == "json_object":
-                model_params["response_format"] = "json"
-
-            # Handle tools and tool choice
-            if request.tools:
-                model_params["tools"] = request.tools
-                if request.tool_choice:
-                    model_params["tool_choice"] = request.tool_choice
-
-            # Log processed data
-            logger.debug(f"Processed text chat messages: {chat_messages}")
-            logger.debug(f"Model parameters: {model_params}")
-
-            return chat_messages, model_params
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to prepare text request: {str(e)}")
-            content = create_error_response(f"Failed to process request: {str(e)}", "bad_request", HTTPStatus.BAD_REQUEST)
-            raise HTTPException(status_code=400, detail=content)
 
     async def _reformat_multimodal_content_part(self, content_part: ChatCompletionContentPart) -> Tuple[Dict[str, Any], bool]:
         """
@@ -565,11 +496,12 @@ class MLXVLMHandler:
             
             # Log processed data at debug level
             logger.debug(f"Processed chat messages: {chat_messages}")
-            logger.debug(f"Processed image paths: {image_paths}")
-            logger.debug(f"Processed audio paths: {audio_paths}")
+            logger.debug(f"Processed image paths: {images}")
+            logger.debug(f"Processed audio paths: {audios}")
+            logger.debug(f"Processed video paths: {videos}")
             logger.debug(f"Model parameters: {model_params}")
 
-            return chat_messages, image_paths, audio_paths, model_params
+            return chat_messages, images, audios, videos, model_params
 
         except HTTPException:
             raise

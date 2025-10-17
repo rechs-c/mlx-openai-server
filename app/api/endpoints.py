@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
 from app.handler.mlx_lm import MLXLMHandler
+from app.handler.mlx_vlm import MLXVLMHandler
 from app.handler import MLXFluxHandler, MFLUX_AVAILABLE
 from app.schemas.openai import (ChatCompletionChunk,
                                 ChatCompletionMessageToolCall,
@@ -69,23 +70,14 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
     if handler is None:
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
+    if not isinstance(handler, MLXVLMHandler) and not isinstance(handler, MLXLMHandler):
+        return JSONResponse(content=create_error_response("Unsupported model type", "unsupported_request", 400), status_code=400)
+
     try:
-        # Check if this is a multimodal request
-        is_multimodal_request = request.is_multimodal_request()
-        # If it's a multimodal request but the handler is MLXLMHandler (text-only), reject it
-        if is_multimodal_request and isinstance(handler, MLXLMHandler):
-            return JSONResponse(
-                content=create_error_response(
-                    "Multimodal requests are not supported with text-only models. Use a VLM model type instead.", 
-                    "unsupported_request", 
-                    400
-                ), 
-                status_code=400
-            )
-        
-        # Process the request based on type
-        return await process_multimodal_request(handler, request) if is_multimodal_request \
-            else await process_text_request(handler, request)
+        if isinstance(handler, MLXVLMHandler):
+            return await process_multimodal_request(handler, request)
+        else:
+            return await process_text_request(handler, request)
     except Exception as e:
         logger.error(f"Error processing chat completion request: {str(e)}", exc_info=True)
         return JSONResponse(content=create_error_response(str(e)), status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
