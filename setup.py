@@ -19,6 +19,7 @@ setup(
         "mlx-whisper==0.4.3",
         "mlx-embeddings==0.0.4",
         "fastapi==0.115.14",
+        "av==16.0.1",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",
         "click==8.2.1",
