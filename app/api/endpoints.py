@@ -70,6 +70,7 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     try:
+        logger.debug(f"{request.json()}")
         # Check if this is a multimodal request
         is_multimodal_request = request.is_multimodal_request()
         # If it's a multimodal request but the handler is MLXLMHandler (text-only), reject it

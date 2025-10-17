@@ -218,6 +218,7 @@ class ChatTemplateKwargs(OpenAIBaseModel):
     Represents the arguments for a chat template.
     """
     reasoning_effot: str = Field("medium", description="The reasoning effort level.")
+    enable_thinking: bool = Field(False, description="Whether to enable thinking mode.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):
