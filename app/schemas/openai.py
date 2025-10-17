@@ -190,25 +190,6 @@ class ChatCompletionRequestBase(OpenAIBaseModel):
                 raise ValueError("max_tokens must be positive")
         return v
     
-    def is_multimodal_request(self) -> bool:
-        """
-        Check if the request includes image or audio content, indicating a multimodal request.
-        """
-        for message in self.messages:
-            content = message.content
-            if isinstance(content, list):
-                for item in content:
-                    if hasattr(item, 'type'):
-                        if item.type == "image_url" and hasattr(item, 'image_url') and item.image_url and item.image_url.url:
-                            logger.debug(f"Detected multimodal request with image: {item.image_url.url[:30]}...")
-                            return True
-                        elif item.type == "input_audio" and hasattr(item, 'input_audio') and item.input_audio and item.input_audio.data:
-                            logger.debug(f"Detected multimodal request with audio data")
-                            return True
-        
-        logger.debug(f"No images or audio detected, treating as text-only request")
-        return False
-    
 class ChatTemplateKwargs(OpenAIBaseModel):
     """
     Represents the arguments for a chat template.
