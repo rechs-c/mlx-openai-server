@@ -302,6 +302,9 @@ class MLXVLMHandler:
                 await self.image_processor.cleanup()
             if hasattr(self, 'audio_processor'):
                 await self.audio_processor.cleanup()
+            if hasattr(self, 'video_processor'):
+                await self.video_processor.cleanup()
+
             # Force garbage collection after cleanup
             gc.collect()
             logger.info("MLXVLMHandler cleanup completed successfully")
@@ -320,16 +323,11 @@ class MLXVLMHandler:
             str: The model's response.
         """
         try:
-            # Check if the request is for embeddings
-            if request_data.get("type") == "embeddings":
-                result = self.model.get_embeddings(request_data["input"], request_data["images"])
-                # Force garbage collection after embeddings
-                gc.collect()
-                return result
             
             # Extract request parameters
             images = request_data.get("images", [])
             audios = request_data.get("audios", [])
+            videos = request_data.get("videos", None)
             messages = request_data.get("messages", [])
             stream = request_data.get("stream", False)
          
@@ -337,6 +335,7 @@ class MLXVLMHandler:
             model_params = request_data.copy()
             model_params.pop("images", None)
             model_params.pop("audios", None)
+            model_params.pop("videos", None)
             model_params.pop("messages", None)
             model_params.pop("stream", None)
             
@@ -344,10 +343,13 @@ class MLXVLMHandler:
             response = self.model(
                 images=images,
                 audios=audios,
+                videos=videos,
                 messages=messages,
                 stream=stream,
                 **model_params
             )
+
+            print(response)
 
             # Force garbage collection after model inference
             gc.collect()
