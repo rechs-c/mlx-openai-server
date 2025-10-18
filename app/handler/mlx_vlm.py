@@ -113,31 +113,13 @@ class MLXVLMHandler:
         request_id = f"multimodal-{uuid.uuid4()}"
         
         try:
-            chat_messages, image_paths, audio_paths, video_paths, model_params = await self._prepare_multimodal_request(request)
-            tools = model_params.get("tools", None)
-            
-            # Create a request data object
-            request_dict = {
-                "images": image_paths,
-                "audios": audio_paths,
-                "videos": video_paths,
-                "messages": chat_messages,
-                "stream": True,
-                **model_params
-            }
-
-            if tools:
-                if tool_choice:
-                    logger.warning("Tool choice has not supported yet, will be ignored.")
-                request_dict["chat_template_kwargs"] = {
-                    "tools": tools
-                }
+            request_dict = await self._prepare_multimodal_request(request)
             
             # Submit to the multimodal queue and get the generator
             response_generator = await self.request_queue.submit(request_id, request_dict)            
             
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
             
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
@@ -487,28 +469,28 @@ class MLXVLMHandler:
             top_p = request.top_p or 1.0
             frequency_penalty = request.frequency_penalty or 0.0
             presence_penalty = request.presence_penalty or 0.0
-            max_tokens = request.max_tokens or 1024
+            max_tokens = request.max_tokens or 8192
             tools = request.tools or None
             tool_choice = request.tool_choice or None
-            
-            model_params = {
+
+            request_dict = {
+                "messages": chat_messages,
+                "images": images,
+                "audios": audios,
+                "videos": videos,
                 "temperature": temperature,
                 "top_p": top_p,
                 "frequency_penalty": frequency_penalty,
                 "presence_penalty": presence_penalty,
                 "max_tokens": max_tokens,
-                "tools": tools,
-                "tool_choice": tool_choice
             }
-            
-            # Log processed data at debug level
-            logger.debug(f"Processed chat messages: {chat_messages}")
-            logger.debug(f"Processed image paths: {images}")
-            logger.debug(f"Processed audio paths: {audios}")
-            logger.debug(f"Processed video paths: {videos}")
-            logger.debug(f"Model parameters: {model_params}")
-
-            return chat_messages, images, audios, videos, model_params
+            if tools:
+                if tool_choice:
+                    logger.warning("Tool choice has not supported yet, will be ignored.")
+                request_dict["chat_template_kwargs"] = {
+                    "tools": tools
+                }
+            return request_dict
 
         except HTTPException:
             raise
