@@ -139,7 +139,8 @@ class MLXVLMHandler:
                     parsed_content, _ = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
-
+                    continue
+                
                 yield text
         
         except asyncio.QueueFull:
