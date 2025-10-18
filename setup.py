@@ -27,6 +27,7 @@ setup(
         "outlines==1.1.1",
         "librosa==0.11.0",
         "openai-harmony==0.0.4",
+        "json_repair==0.52.1",
         "python-multipart==0.0.20"
     ],
     extras_require={
