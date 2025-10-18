@@ -107,7 +107,7 @@ class BaseToolParser:
                     return None, True
                 return {
                     "name": json_output["name"],
-                    "arguments": json_output["arguments"]
+                    "arguments": json.dumps(json_output["arguments"])
                 }, True
 
             self.buffer += chunk[start_tool_index + len(self.tool_open):]
@@ -126,7 +126,7 @@ class BaseToolParser:
                     return None, False
                 return {
                     "name": json_output["name"],
-                    "arguments": json_output["arguments"]
+                    "arguments": json.dumps(json_output["arguments"])
                 }, True
             else:
                 self.buffer += chunk
