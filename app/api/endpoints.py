@@ -26,6 +26,9 @@ from app.utils.errors import create_error_response
 
 router = APIRouter()
 
+# Cache for models response to ensure instant responses
+_models_cache: Dict[int, ModelsResponse] = {}
+
 
 @router.get("/health")
 async def health():
@@ -56,11 +59,37 @@ async def queue_stats(raw_request: Request):
 @router.get("/v1/models")
 async def models(raw_request: Request):
     """
-    Get list of available models.
+    Get list of available models with cached response for instant delivery.
     """
     handler = raw_request.app.state.handler
-    models_data = handler.get_models()
-    return ModelsResponse(data=[Model(**model) for model in models_data])
+    if handler is None:
+        return JSONResponse(
+            content=create_error_response("Model handler not initialized", "service_unavailable", 503), 
+            status_code=503
+        )
+    
+    try:
+        # Use handler's id as cache key
+        handler_id = id(handler)
+        
+        # Check cache first for instant response
+        if handler_id in _models_cache:
+            return _models_cache[handler_id]
+        
+        # Call get_models() directly - it's a simple memory operation
+        models_data = handler.get_models()
+        response = ModelsResponse(data=[Model(**model) for model in models_data])
+        
+        # Cache the response for subsequent calls
+        _models_cache[handler_id] = response
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error retrieving models: {str(e)}")
+        return JSONResponse(
+            content=create_error_response(f"Failed to retrieve models: {str(e)}", "server_error", 500),
+            status_code=500
+        )
 
 @router.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
