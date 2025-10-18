@@ -60,7 +60,7 @@ class MLX_VLM:
             images (List[str]): List of image paths to process.
             messages (List[Dict[str, str]]): List of message dictionaries with 'role' and 'content' keys.
             stream (bool, optional): Whether to stream the response. Defaults to False.
-            **kwargs: Additional model parameters (temperature, max_tokens, etc.)
+            **kwargs: Additional model parameters (chat_template_kwargs, temperature, max_tokens, etc.)
             
         Returns:
             Union[str, Generator[str, None, None]]: 
@@ -127,8 +127,9 @@ class MLX_VLM:
 
 if __name__ == "__main__":
     image_path = "examples/images/attention.png"
-    video_path = "examples/images/demo.mp4"
-    model_path = "mlx-community/Qwen3-VL-4B-Thinking-4bit"
+    video_path = "examples/videos/demo.mp4"
+    model_path = "mlx-community/Qwen3-VL-30B-A3B-Thinking-8bit"
+    
     model = MLX_VLM(model_path)
     tools = [{
         "type": "function",
@@ -144,21 +145,32 @@ if __name__ == "__main__":
             "required": ["city"]
         }}   
     ]
+    kwargs = {
+        "chat_template_kwargs": {
+            "tools": tools
+        },
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "seed": 0,
+        "max_tokens": 8192,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0
+    }
     messages = [
         {
             "role": "user",
             "content": [
                 {
                     "type": "text",
-                    "text": "What is the weather in Tokyo?"
+                    "text": "Describe the video in detail"
                 },
                 {
-                    "image": image_path,
-                    "type": "image"
+                    "type": "video",
+                    "video": video_path
                 }
             ]
         }
     ]
-    response = model(messages, stream=True, tools=tools)
+    response = model(messages, stream=True, **kwargs)
     for chunk in response:
-        print(chunk, end="\n", flush=True)
+        print(chunk, end="", flush=True)
