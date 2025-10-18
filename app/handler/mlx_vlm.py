@@ -75,7 +75,7 @@ class MLXVLMHandler:
         thinking_parser = None
         tool_parser = None
         
-        if self.model_type == "qwen3_vl":
+        if self.model_type == "qwen3_vl" or "qwen3_vl_moe":
             thinking_parser = Qwen3ThinkingParser()
             tool_parser = Qwen3ToolParser() if tools else None
             
@@ -116,10 +116,15 @@ class MLXVLMHandler:
             request_dict = await self._prepare_multimodal_request(request)
             
             # Submit to the multimodal queue and get the generator
-            response_generator = await self.request_queue.submit(request_id, request_dict)            
+            response_generator = await self.request_queue.submit(request_id, request_dict)      
+
+            print("REQUEST DICT: ", request_dict)      
             
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
+
+            print("THINKING PARSER: ", thinking_parser)
+            print("TOOL PARSER: ", tool_parser)
             
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
@@ -178,25 +183,25 @@ class MLXVLMHandler:
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
             
-            # Handle qwen3_vl model with thinking/tool parsing
-            if self.model_type == "qwen3_vl":
-                parsed_response = {
-                    "reasoning_content": None,
-                    "tool_calls": None,
-                    "content": None
-                }
-                
-                response_text = response.text
-                
-                if thinking_parser:
-                    thinking_response, response_text = thinking_parser.parse(response_text)
-                    parsed_response["reasoning_content"] = thinking_response
-                if tools and tool_parser:
-                    tool_response, response_text = tool_parser.parse(response_text)
-                    parsed_response["tool_calls"] = tool_response
-                parsed_response["content"] = response_text
-                
-                return parsed_response
+            if not thinking_parser and not tool_parser:
+                return response.text
+            
+            parsed_response = {
+                "reasoning_content": None,
+                "tool_calls": None,
+                "content": None
+            }
+                            
+            if thinking_parser:
+                thinking_response, response_text = thinking_parser.parse(response.text)
+                parsed_response["reasoning_content"] = thinking_response
+            if tool_parser:
+                tool_response, response_text = tool_parser.parse(response.text)
+                parsed_response["tool_calls"] = tool_response
+            parsed_response["content"] = response_text
+            
+            return parsed_response
+            
 
             return response.text
             

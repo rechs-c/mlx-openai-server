@@ -175,31 +175,30 @@ class MLXLMHandler:
            
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(tools)
+
+            if not thinking_parser and not tool_parser:
+                return response
             
             # Handle Harmony parser (special case)
             if isinstance(thinking_parser, HarmonyParser):
                 return thinking_parser.parse(response)
             
-            # Handle other model types with thinking/tool parsing
-            if self.model_type in ["qwen3", "glm4_moe"]:
-                parsed_response = {
-                    "reasoning_content": None,
-                    "tool_calls": None,
-                    "content": None
-                }
-                
-                if thinking_parser:
-                    thinking_response, response = thinking_parser.parse(response)
-                    parsed_response["reasoning_content"] = thinking_response
-                if tools and tool_parser:
-                    tool_response, response = tool_parser.parse(response)
-                    parsed_response["tool_calls"] = tool_response
-                parsed_response["content"] = response
-                
-                return parsed_response
+            parsed_response = {
+                "reasoning_content": None,
+                "tool_calls": None,
+                "content": None
+            }
             
-            return response
+            if thinking_parser:
+                thinking_response, response = thinking_parser.parse(response)
+                parsed_response["reasoning_content"] = thinking_response
+            if tools and tool_parser:
+                tool_response, response = tool_parser.parse(response)
+                parsed_response["tool_calls"] = tool_response
+            parsed_response["content"] = response
             
+            return parsed_response
+                        
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
