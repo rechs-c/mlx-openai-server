@@ -131,12 +131,9 @@ class MLXLMHandler:
                     continue
                     
                 if tool_parser:
-                    parsed_content, is_complete = tool_parser.parse_stream(text)
+                    parsed_content, _ = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
-                    if is_complete:
-                        tool_parser = None
-                        continue
 
                 yield text
 

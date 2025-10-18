@@ -117,14 +117,9 @@ class MLXVLMHandler:
             
             # Submit to the multimodal queue and get the generator
             response_generator = await self.request_queue.submit(request_id, request_dict)      
-
-            print("REQUEST DICT: ", request_dict)      
             
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
-
-            print("THINKING PARSER: ", thinking_parser)
-            print("TOOL PARSER: ", tool_parser)
             
             # Process and yield each chunk asynchronously
             for chunk in response_generator:
@@ -142,12 +137,9 @@ class MLXVLMHandler:
                     continue
                     
                 if tool_parser:
-                    parsed_content, is_complete = tool_parser.parse_stream(text)
+                    parsed_content, _ = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
-                    if is_complete:
-                        tool_parser = None
-                        continue
 
                 yield text
         
@@ -201,10 +193,7 @@ class MLXVLMHandler:
             parsed_response["content"] = response_text
             
             return parsed_response
-            
-
-            return response.text
-            
+                        
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)

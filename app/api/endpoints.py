@@ -363,7 +363,7 @@ def format_final_response(response: Union[str, Dict[str, Any]], model: str) -> C
         )
         tool_call_responses.append(tool_call_response)
     
-    message = Message(role="assistant", content="", reasoning_content=reasoning_content, tool_calls=tool_call_responses)
+    message = Message(role="assistant", content=response_content, reasoning_content=reasoning_content, tool_calls=tool_call_responses)
     
     return ChatCompletionResponse(
         id=get_id(),
