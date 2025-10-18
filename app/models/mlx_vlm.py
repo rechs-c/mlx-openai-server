@@ -1,16 +1,15 @@
-import gc
+import os
 import mlx.core as mx
 from typing import List, Dict, Union, Generator
 from mlx_vlm.models.cache import make_prompt_cache
 from mlx_vlm import load, generate, stream_generate
 from mlx_vlm.video_generate import process_vision_info
 
-
 # Default model parameters
-DEFAULT_MAX_TOKENS = 256
-DEFAULT_TEMPERATURE = 0.0
-DEFAULT_TOP_P = 1.0
-DEFAULT_SEED = 0
+DEFAULT_MAX_TOKENS = os.getenv("DEFAULT_MAX_TOKENS", 8192)
+DEFAULT_TEMPERATURE = os.getenv("DEFAULT_TEMPERATURE", 0.0)
+DEFAULT_TOP_P = os.getenv("DEFAULT_TOP_P", 1.0)
+DEFAULT_SEED = os.getenv("DEFAULT_SEED", 0)
 
 class MLX_VLM:
     """
@@ -77,8 +76,9 @@ class MLX_VLM:
 
         text = self.processor.apply_chat_template(
             messages,
+            tools=kwargs.get("chat_template_kwargs", {}).get("tools", None),
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
         )
         
         image_inputs, video_inputs = process_vision_info(messages)
@@ -130,13 +130,27 @@ if __name__ == "__main__":
     video_path = "examples/images/demo.mp4"
     model_path = "mlx-community/Qwen3-VL-4B-Thinking-4bit"
     model = MLX_VLM(model_path)
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the weather for a given city",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "The city to get the weather for"}
+                }
+            },
+            "required": ["city"]
+        }}   
+    ]
     messages = [
         {
             "role": "user",
             "content": [
                 {
                     "type": "text",
-                    "text": "Describe the image in detail"
+                    "text": "What is the weather in Tokyo?"
                 },
                 {
                     "image": image_path,
@@ -145,6 +159,6 @@ if __name__ == "__main__":
             ]
         }
     ]
-    response = model(messages, stream=True)
+    response = model(messages, stream=True, tools=tools)
     for chunk in response:
         print(chunk, end="\n", flush=True)

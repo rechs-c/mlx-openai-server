@@ -114,9 +114,10 @@ class MLXVLMHandler:
         
         try:
             chat_messages, image_paths, audio_paths, video_paths, model_params = await self._prepare_multimodal_request(request)
+            tools = model_params.get("tools", None)
             
             # Create a request data object
-            request_data = {
+            request_dict = {
                 "images": image_paths,
                 "audios": audio_paths,
                 "videos": video_paths,
@@ -124,10 +125,16 @@ class MLXVLMHandler:
                 "stream": True,
                 **model_params
             }
+
+            if tools:
+                if tool_choice:
+                    logger.warning("Tool choice has not supported yet, will be ignored.")
+                request_dict["chat_template_kwargs"] = {
+                    "tools": tools
+                }
             
             # Submit to the multimodal queue and get the generator
-            response_generator = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("tools", None)
+            response_generator = await self.request_queue.submit(request_id, request_dict)            
             
             # Create appropriate parsers for this model type
             thinking_parser, tool_parser = self._create_parsers(tools)
