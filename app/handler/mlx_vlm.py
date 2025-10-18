@@ -76,7 +76,6 @@ class MLXVLMHandler:
         tool_parser = None
         
         if self.model_type == "qwen3_vl" or "qwen3_vl_moe":
-            thinking_parser = Qwen3ThinkingParser()
             tool_parser = Qwen3ToolParser() if tools else None
             
         return thinking_parser, tool_parser
