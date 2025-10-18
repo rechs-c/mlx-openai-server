@@ -171,24 +171,12 @@ class MLXVLMHandler:
             # Create a unique request ID
             request_id = f"multimodal-{uuid.uuid4()}"
             
-            # Prepare the multimodal request
-            chat_messages, image_paths, audio_paths, video_paths, model_params = await self._prepare_multimodal_request(request)
-            
-            # Create a request data object
-            request_data = {
-                "images": image_paths,
-                "audios": audio_paths,
-                "videos": video_paths,
-                "messages": chat_messages,
-                "stream": False,
-                **model_params
-            }
+            request_dict = await self._prepare_multimodal_request(request)
         
-            response = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("tools", None)
-            
+            response = await self.request_queue.submit(request_id, request_dict)
+                        
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
             
             # Handle qwen3_vl model with thinking/tool parsing
             if self.model_type == "qwen3_vl":
@@ -464,26 +452,22 @@ class MLXVLMHandler:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
 
-            # Get model parameters from the request
-            temperature = request.temperature or 0.7
-            top_p = request.top_p or 1.0
-            frequency_penalty = request.frequency_penalty or 0.0
-            presence_penalty = request.presence_penalty or 0.0
-            max_tokens = request.max_tokens or 8192
-            tools = request.tools or None
-            tool_choice = request.tool_choice or None
-
             request_dict = {
                 "messages": chat_messages,
                 "images": images,
                 "audios": audios,
                 "videos": videos,
-                "temperature": temperature,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "presence_penalty": presence_penalty,
-                "max_tokens": max_tokens,
+                "temperature": request.temperature or 0.7,
+                "top_p": request.top_p or 1.0,
+                "frequency_penalty": request.frequency_penalty or 0.0,
+                "presence_penalty": request.presence_penalty or 0.0,
+                "max_tokens": request.max_tokens or 8192,
+                "stream": request.stream or False
             }
+
+            tools = request.tools or None
+            tool_choice = request.tool_choice or None
+
             if tools:
                 if tool_choice:
                     logger.warning("Tool choice has not supported yet, will be ignored.")
