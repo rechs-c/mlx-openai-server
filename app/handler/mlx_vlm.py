@@ -465,7 +465,8 @@ class MLXVLMHandler:
                 "frequency_penalty": request.frequency_penalty,
                 "presence_penalty": request.presence_penalty,
                 "max_tokens": request.max_tokens,
-                "chat_template_kwargs": request.chat_template_kwargs.model_dump()
+                "chat_template_kwargs": request.chat_template_kwargs.model_dump(),
+                "stream": request.stream
             }
 
             tools = request.tools or None
