@@ -195,9 +195,11 @@ class MLXVLMHandler:
                 "content": None
             }
             response_text = response.text
+            print("RESPONSE TEXT: ", response_text)
                             
             if thinking_parser:
                 thinking_response, response_text = thinking_parser.parse(response_text)
+                print("THINKING RESPONSE: ", thinking_response)
                 parsed_response["reasoning_content"] = thinking_response
             if tool_parser:
                 tool_response, response_text = tool_parser.parse(response_text)
@@ -468,7 +470,8 @@ class MLXVLMHandler:
                 "frequency_penalty": request.frequency_penalty or 0.0,
                 "presence_penalty": request.presence_penalty or 0.0,
                 "max_tokens": request.max_tokens or 8192,
-                "stream": request.stream or False
+                "stream": request.stream or False,
+                "chat_template_kwargs": request.chat_template_kwargs or {}
             }
 
             tools = request.tools or None
@@ -477,9 +480,7 @@ class MLXVLMHandler:
             if tools:
                 if tool_choice:
                     logger.warning("Tool choice has not supported yet, will be ignored.")
-                request_dict["chat_template_kwargs"] = {
-                    "tools": tools
-                }
+                request_dict["chat_template_kwargs"]["tools"] = tools
             return request_dict
 
         except HTTPException:
