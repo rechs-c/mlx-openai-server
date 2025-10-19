@@ -460,14 +460,21 @@ class MLXVLMHandler:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
 
-            request_dict = request.model_dump()
+            request_dict = {
+                "messages": chat_messages,
+                "images": images,
+                "audios": audios,
+                "videos": videos,
+                "temperature": request.temperature,
+                "top_p": request.top_p,
+                "frequency_penalty": request.frequency_penalty,
+                "presence_penalty": request.presence_penalty,
+                "max_tokens": request.max_tokens,
+                "chat_template_kwargs": request.chat_template_kwargs.model_dump()
+            }
 
-            request_dict["messages"] = chat_messages
-            request_dict["images"] = images
-            request_dict["audios"] = audios
-            request_dict["videos"] = videos
-            tools = request_dict.pop("tools", None)
-            tool_choice = request_dict.pop("tool_choice", None)
+            tools = request.tools or None
+            tool_choice = request.tool_choice or None
 
             if tools:
                 if tool_choice:
