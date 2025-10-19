@@ -80,9 +80,8 @@ class MLXVLMHandler:
         thinking_parser = None
         tool_parser = None
         
-        if self.model_type == "qwen3_vl" or "qwen3_vl_moe":
+        if self.model_type in ["qwen3_vl", "qwen3_vl_moe"]:
             tool_parser = Qwen3ToolParser() if tools else None
-
         elif self.model_type == "glm4v_moe":
             thinking_parser = Glm4MoEThinkingParser() if enable_thinking else None
             tool_parser = Glm4MoEToolParser() if tools else None
@@ -468,8 +467,6 @@ class MLXVLMHandler:
                 "max_tokens": request.max_tokens,
                 "chat_template_kwargs": request.chat_template_kwargs.model_dump()
             }
-
-            print("REQUEST DICT: ", request_dict)
 
             tools = request.tools or None
             tool_choice = request.tool_choice or None
