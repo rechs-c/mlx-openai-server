@@ -43,8 +43,6 @@ class MLXVLMHandler:
         self.model_created = int(time.time())  # Store creation time when model is loaded
         self.model_type = self.model.get_model_type()
 
-        print("MODEL TYPE: ", self.model_type)
-        
         # Initialize request queue for multimodal and text tasks
         # We use the same queue for both multimodal and text tasks for simplicity
         # and to ensure we don't overload the model with too many concurrent requests
@@ -195,11 +193,9 @@ class MLXVLMHandler:
                 "content": None
             }
             response_text = response.text
-            print("RESPONSE TEXT: ", response_text)
-                            
+
             if thinking_parser:
                 thinking_response, response_text = thinking_parser.parse(response_text)
-                print("THINKING RESPONSE: ", thinking_response)
                 parsed_response["reasoning_content"] = thinking_response
             if tool_parser:
                 tool_response, response_text = tool_parser.parse(response_text)
@@ -472,6 +468,8 @@ class MLXVLMHandler:
                 "max_tokens": request.max_tokens,
                 "chat_template_kwargs": request.chat_template_kwargs.model_dump()
             }
+
+            print("REQUEST DICT: ", request_dict)
 
             tools = request.tools or None
             tool_choice = request.tool_choice or None
