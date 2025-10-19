@@ -194,7 +194,8 @@ class ChatTemplateKwargs(OpenAIBaseModel):
     """
     Represents the arguments for a chat template.
     """
-    reasoning_effot: str = Field("medium", description="The reasoning effort level.")
+    enable_thinking: bool = Field(True, description="Whether to enable thinking.")
+    reasoning_effot: Literal["low", "medium", "high"] = Field("medium", description="The reasoning effort level.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):
