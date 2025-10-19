@@ -173,10 +173,9 @@ class MLXLMHandler:
                 **model_params
             }
             response = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-           
+            
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(model_params.get("chat_template_kwargs", {}))
 
             if not thinking_parser and not tool_parser:
                 return response
@@ -194,7 +193,8 @@ class MLXLMHandler:
             if thinking_parser:
                 thinking_response, response = thinking_parser.parse(response)
                 parsed_response["reasoning_content"] = thinking_response
-            if tools and tool_parser:
+                
+            if tool_parser:
                 tool_response, response = tool_parser.parse(response)
                 parsed_response["tool_calls"] = tool_response
             parsed_response["content"] = response
