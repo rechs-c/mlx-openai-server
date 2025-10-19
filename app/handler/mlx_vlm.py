@@ -184,7 +184,7 @@ class MLXVLMHandler:
             response = await self.request_queue.submit(request_id, request_dict)
                         
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
+            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}))
             
             if not thinking_parser and not tool_parser:
                 return response.text
