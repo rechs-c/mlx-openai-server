@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.core.queue import RequestQueue
 from app.models.mlx_vlm import MLX_VLM
 from app.handler.parser import (
-    Qwen3ThinkingParser, Qwen3ToolParser   
+    Qwen3ToolParser, Glm4MoEThinkingParser, Glm4MoEToolParser   
 )
 from app.core import ImageProcessor, AudioProcessor, VideoProcessor
 from app.utils.errors import create_error_response
@@ -69,18 +69,25 @@ class MLXVLMHandler:
             logger.error(f"Error getting models: {str(e)}")
             return []
     
-    def _create_parsers(self, tools: Optional[List] = None) -> Tuple[Optional[Any], Optional[Any]]:
+    def _create_parsers(self, chat_template_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[Optional[Any], Optional[Any]]:
         """
         Create appropriate parsers based on model type and available tools.
         
         Returns:
             Tuple of (thinking_parser, tool_parser)
         """
+        tools = chat_template_kwargs.get("tools", None)
+        enable_thinking = chat_template_kwargs.get("enable_thinking", True)
+
         thinking_parser = None
         tool_parser = None
         
         if self.model_type == "qwen3_vl" or "qwen3_vl_moe":
             tool_parser = Qwen3ToolParser() if tools else None
+
+        elif self.model_type == "glm4v_moe":
+            thinking_parser = Glm4MoEThinkingParser() if enable_thinking else None
+            tool_parser = Glm4MoEToolParser() if tools else None
             
         return thinking_parser, tool_parser
     
@@ -122,7 +129,7 @@ class MLXVLMHandler:
             response_generator = await self.request_queue.submit(request_id, request_dict)      
             
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}).get("tools", None))
+            thinking_parser, tool_parser = self._create_parsers(request_dict.get("chat_template_kwargs", {}))
             
             # Process and yield each chunk asynchronously
             for chunk in response_generator:

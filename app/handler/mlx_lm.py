@@ -39,13 +39,15 @@ class MLXLMHandler:
 
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
     
-    def _create_parsers(self, tools: Optional[List] = None) -> Tuple[Optional[Any], Optional[Any]]:
+    def _create_parsers(self, chat_template_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[Optional[Any], Optional[Any]]:
         """
         Create appropriate parsers based on model type and available tools.
         
         Returns:
             Tuple of (thinking_parser, tool_parser)
         """
+        tools = chat_template_kwargs.get("tools", None)
+        enable_thinking = chat_template_kwargs.get("enable_thinking", True)
         thinking_parser = None
         tool_parser = None
         
@@ -53,14 +55,14 @@ class MLXLMHandler:
             thinking_parser = Qwen3ThinkingParser()
             tool_parser = Qwen3ToolParser() if tools else None
         elif self.model_type == "glm4_moe":
-            thinking_parser = Glm4MoEThinkingParser()
+            thinking_parser = Glm4MoEThinkingParser() if enable_thinking else None
             tool_parser = Glm4MoEToolParser() if tools else None
         elif self.model_type == "gpt_oss":
             # Harmony parser handles both thinking and tools
             return HarmonyParser(), None
             
         return thinking_parser, tool_parser
-        
+
     async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
@@ -112,11 +114,9 @@ class MLXLMHandler:
                 "stream": True,
                 **model_params
             }
-            response_generator = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            
+            response_generator = await self.request_queue.submit(request_id, request_data)            
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(model_params.get("chat_template_kwargs", {}))
 
             # # Process streaming response
             for chunk in response_generator:
@@ -138,6 +138,7 @@ class MLXLMHandler:
                     parsed_content, _ = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
+                    continue
 
                 yield text
 

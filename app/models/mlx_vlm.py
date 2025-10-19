@@ -76,9 +76,9 @@ class MLX_VLM:
 
         text = self.processor.apply_chat_template(
             messages,
-            tools=kwargs.get("chat_template_kwargs", {}).get("tools", None),
             tokenize=False,
             add_generation_prompt=True,
+            **kwargs.get("chat_template_kwargs", {})
         )
         
         image_inputs, video_inputs = process_vision_info(messages)
@@ -128,9 +128,11 @@ class MLX_VLM:
 if __name__ == "__main__":
     image_path = "examples/images/attention.png"
     video_path = "examples/videos/demo.mp4"
-    model_path = "mlx-community/Qwen3-VL-30B-A3B-Thinking-8bit"
+    model_path = "mlx-community/GLM-4.5V-4bit"
     
     model = MLX_VLM(model_path)
+    print("MODEL TYPE: ", model.get_model_type())
+
     tools = [{
         "type": "function",
         "function": {
@@ -147,7 +149,8 @@ if __name__ == "__main__":
     ]
     kwargs = {
         "chat_template_kwargs": {
-            "tools": tools
+            "tools": tools,
+            "enable_thinking": True,
         },
         "temperature": 0.0,
         "top_p": 1.0,
@@ -165,12 +168,11 @@ if __name__ == "__main__":
                     "text": "Describe the video in detail"
                 },
                 {
-                    "type": "video",
-                    "video": video_path
+                    "type": "image",
+                    "image": image_path
                 }
             ]
         }
     ]
-    response = model(messages, stream=True, **kwargs)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    response = model(messages, stream=False, **kwargs)
+    print(response)
