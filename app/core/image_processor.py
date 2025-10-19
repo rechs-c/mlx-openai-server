@@ -1,17 +1,10 @@
-import asyncio
-import base64
-import hashlib
-import os
-import tempfile
-import aiohttp
-import time
 import gc
+import asyncio
 from PIL import Image
 from loguru import logger
 from io import BytesIO
-from typing import List, Optional, Dict
-from concurrent.futures import ThreadPoolExecutor
-from .base_processor import BaseProcessor
+from typing import List
+from app.core.base_processor import BaseProcessor
 
 
 class ImageProcessor(BaseProcessor):

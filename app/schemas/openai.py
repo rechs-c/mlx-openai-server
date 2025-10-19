@@ -63,33 +63,29 @@ class ErrorResponse(OpenAIBaseModel):
 
 # Common models used in both streaming and non-streaming contexts
 class ImageURL(OpenAIBaseModel):
-    """
-    Represents an image URL in a message.
-    """
     url: str = Field(..., description="Either a URL of the image or the base64 encoded image data.")
 
 class ChatCompletionContentPartImage(OpenAIBaseModel):
-    image_url: Optional[ImageURL] = Field(None, description="The image URL object, if type is 'image_url'.")
+    image_url: Optional[ImageURL] = Field(None, description="Either a URL of the image or the base64 encoded image data.")
     type: Literal["image_url"] = Field(..., description="The type of content, e.g., 'image_url'.")
 
 class VideoURL(OpenAIBaseModel):
     url: str = Field(..., description="Either a URL of the video or the base64 encoded video data.")
-    type: Literal["video_url"] = Field(..., description="The type of content, e.g., 'video_url'.")
 
 class ChatCompletionContentPartVideo(OpenAIBaseModel):
-    video_url: Optional[VideoURL] = Field(None, description="The video URL object, if type is 'video_url'.")
+    video_url: Optional[VideoURL] = Field(None, description="Either a URL of the video or the base64 encoded video data.")
     type: Literal["video_url"] = Field(..., description="The type of content, e.g., 'video_url'.")
 
 class InputAudio(OpenAIBaseModel):
-    data: str = Field(..., description="The audio data.")
+    data: str = Field(..., description="Either a URL of the audio or the base64 encoded audio data.")
     format: Literal["mp3", "wav"] = Field(..., description="The audio format.")
 
 class ChatCompletionContentPartInputAudio(OpenAIBaseModel):
-    input_audio: Optional[InputAudio] = Field(None, description="The audio input object, if type is 'input_audio'.")
+    input_audio: Optional[InputAudio] = Field(None, description="Either a URL of the audio or the base64 encoded audio data.")
     type: Literal["input_audio"] = Field(..., description="The type of content, e.g., 'input_audio'.")
 
 class ChatCompletionContentPartText(OpenAIBaseModel):
-    text: str = Field(..., description="The text content, if type is 'text'.")
+    text: str = Field(..., description="The text content.")
     type: Literal["text"] = Field(..., description="The type of content, e.g., 'text'.")
 
 ChatCompletionContentPart: TypeAlias = Union[ChatCompletionContentPartImage, ChatCompletionContentPartVideo, ChatCompletionContentPartInputAudio, ChatCompletionContentPartText]
@@ -194,30 +190,12 @@ class ChatCompletionRequestBase(OpenAIBaseModel):
                 raise ValueError("max_tokens must be positive")
         return v
     
-    def is_multimodal_request(self) -> bool:
-        """
-        Check if the request includes image or audio content, indicating a multimodal request.
-        """
-        for message in self.messages:
-            content = message.content
-            if isinstance(content, list):
-                for item in content:
-                    if hasattr(item, 'type'):
-                        if item.type == "image_url" and hasattr(item, 'image_url') and item.image_url and item.image_url.url:
-                            logger.debug(f"Detected multimodal request with image: {item.image_url.url[:30]}...")
-                            return True
-                        elif item.type == "input_audio" and hasattr(item, 'input_audio') and item.input_audio and item.input_audio.data:
-                            logger.debug(f"Detected multimodal request with audio data")
-                            return True
-        
-        logger.debug(f"No images or audio detected, treating as text-only request")
-        return False
-    
 class ChatTemplateKwargs(OpenAIBaseModel):
     """
     Represents the arguments for a chat template.
     """
-    reasoning_effot: str = Field("medium", description="The reasoning effort level.")
+    enable_thinking: bool = Field(True, description="Whether to enable thinking.")
+    reasoning_effot: Literal["low", "medium", "high"] = Field("medium", description="The reasoning effort level.")
 
 # Non-streaming request and response
 class ChatCompletionRequest(ChatCompletionRequestBase):

@@ -39,13 +39,15 @@ class MLXLMHandler:
 
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
     
-    def _create_parsers(self, tools: Optional[List] = None) -> Tuple[Optional[Any], Optional[Any]]:
+    def _create_parsers(self, chat_template_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[Optional[Any], Optional[Any]]:
         """
         Create appropriate parsers based on model type and available tools.
         
         Returns:
             Tuple of (thinking_parser, tool_parser)
         """
+        tools = chat_template_kwargs.get("tools", None)
+        enable_thinking = chat_template_kwargs.get("enable_thinking", True)
         thinking_parser = None
         tool_parser = None
         
@@ -53,24 +55,28 @@ class MLXLMHandler:
             thinking_parser = Qwen3ThinkingParser()
             tool_parser = Qwen3ToolParser() if tools else None
         elif self.model_type == "glm4_moe":
-            thinking_parser = Glm4MoEThinkingParser()
+            thinking_parser = Glm4MoEThinkingParser() if enable_thinking else None
             tool_parser = Glm4MoEToolParser() if tools else None
         elif self.model_type == "gpt_oss":
             # Harmony parser handles both thinking and tools
             return HarmonyParser(), None
             
         return thinking_parser, tool_parser
-    
-    def get_models(self) -> List[Dict[str, Any]]:
+
+    async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
         """
-        return [{
-            "id": self.model_path,
-            "object": "model",
-            "created": self.model_created,
-            "owned_by": "local"
-        }]
+        try:
+            return [{
+                "id": self.model_path,
+                "object": "model",
+                "created": self.model_created,
+                "owned_by": "local"
+            }]
+        except Exception as e:
+            logger.error(f"Error getting models: {str(e)}")
+            return []
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""
@@ -108,11 +114,9 @@ class MLXLMHandler:
                 "stream": True,
                 **model_params
             }
-            response_generator = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-            
+            response_generator = await self.request_queue.submit(request_id, request_data)            
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(model_params.get("chat_template_kwargs", {}))
 
             # # Process streaming response
             for chunk in response_generator:
@@ -131,12 +135,10 @@ class MLXLMHandler:
                     continue
                     
                 if tool_parser:
-                    parsed_content, is_complete = tool_parser.parse_stream(text)
+                    parsed_content, _ = tool_parser.parse_stream(text)
                     if parsed_content:
                         yield parsed_content
-                    if is_complete:
-                        tool_parser = None
-                        continue
+                    continue
 
                 yield text
 
@@ -171,35 +173,34 @@ class MLXLMHandler:
                 **model_params
             }
             response = await self.request_queue.submit(request_id, request_data)
-            tools = model_params.get("chat_template_kwargs", {}).get("tools", None)
-           
+            
             # Create appropriate parsers for this model type
-            thinking_parser, tool_parser = self._create_parsers(tools)
+            thinking_parser, tool_parser = self._create_parsers(model_params.get("chat_template_kwargs", {}))
+
+            if not thinking_parser and not tool_parser:
+                return response
             
             # Handle Harmony parser (special case)
             if isinstance(thinking_parser, HarmonyParser):
                 return thinking_parser.parse(response)
             
-            # Handle other model types with thinking/tool parsing
-            if self.model_type in ["qwen3", "glm4_moe"]:
-                parsed_response = {
-                    "reasoning_content": None,
-                    "tool_calls": None,
-                    "content": None
-                }
-                
-                if thinking_parser:
-                    thinking_response, response = thinking_parser.parse(response)
-                    parsed_response["reasoning_content"] = thinking_response
-                if tools and tool_parser:
-                    tool_response, response = tool_parser.parse(response)
-                    parsed_response["tool_calls"] = tool_response
-                parsed_response["content"] = response
-                
-                return parsed_response
+            parsed_response = {
+                "reasoning_content": None,
+                "tool_calls": None,
+                "content": None
+            }
             
-            return response
+            if thinking_parser:
+                thinking_response, response = thinking_parser.parse(response)
+                parsed_response["reasoning_content"] = thinking_response
+                
+            if tool_parser:
+                tool_response, response = tool_parser.parse(response)
+                parsed_response["tool_calls"] = tool_response
+            parsed_response["content"] = response
             
+            return parsed_response
+                        
         except asyncio.QueueFull:
             logger.error("Too many requests. Service is at capacity.")
             content = create_error_response("Too many requests. Service is at capacity.", "rate_limit_exceeded", HTTPStatus.TOO_MANY_REQUESTS)
