@@ -46,16 +46,20 @@ class MLXWhisperHandler:
 
         logger.info(f"Initialized MLXWhisperHandler with model path: {model_path}")
     
-    def get_models(self) -> List[Dict[str, Any]]:
+    async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
         """
-        return [{
-            "id": self.model_path,
-            "object": "model",
-            "created": self.model_created,
-            "owned_by": "local"
-        }]
+        try:
+            return [{
+                "id": self.model_path,
+                "object": "model",
+                "created": self.model_created,
+                "owned_by": "local"
+            }]
+        except Exception as e:
+            logger.error(f"Error getting models: {str(e)}")
+            return []
     
     async def initialize(self, queue_config: Optional[Dict[str, Any]] = None):
         """Initialize the handler and start the request queue."""

@@ -54,16 +54,20 @@ class MLXVLMHandler:
         if disable_auto_resize:
             logger.info("Auto-resize is disabled for image processing")
 
-    def get_models(self) -> List[Dict[str, Any]]:
+    async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
         """
-        return [{
-            "id": self.model_path,
-            "object": "model",
-            "created": self.model_created,
-            "owned_by": "local"
-        }]
+        try:
+            return [{
+                "id": self.model_path,
+                "object": "model",
+                "created": self.model_created,
+                "owned_by": "local"
+            }]
+        except Exception as e:
+            logger.error(f"Error getting models: {str(e)}")
+            return []
     
     def _create_parsers(self, tools: Optional[List] = None) -> Tuple[Optional[Any], Optional[Any]]:
         """
@@ -140,7 +144,7 @@ class MLXVLMHandler:
                     if parsed_content:
                         yield parsed_content
                     continue
-                
+
                 yield text
         
         except asyncio.QueueFull:

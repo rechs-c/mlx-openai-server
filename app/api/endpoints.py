@@ -26,23 +26,6 @@ from app.utils.errors import create_error_response
 
 router = APIRouter()
 
-# Cache for models response to ensure instant responses
-_models_cache: Dict[int, ModelsResponse] = {}
-
-def populate_models_cache(handler):
-    """
-    Pre-populate the models cache during startup to ensure instant responses.
-    This should be called once during application initialization.
-    """
-    try:
-        handler_id = id(handler)
-        models_data = handler.get_models()
-        response = ModelsResponse(data=[Model(**model) for model in models_data])
-        _models_cache[handler_id] = response
-        logger.info(f"Models cache pre-populated with {len(models_data)} models")
-    except Exception as e:
-        logger.error(f"Failed to pre-populate models cache: {str(e)}")
-
 
 # =============================================================================
 # Critical/Monitoring Endpoints - Defined first to ensure priority matching
@@ -63,33 +46,14 @@ async def models(raw_request: Request):
     """
     handler = raw_request.app.state.handler
     if handler is None:
-        return JSONResponse(
-            content=create_error_response("Model handler not initialized", "service_unavailable", 503), 
-            status_code=503
-        )
+        return JSONResponse(content=create_error_response("Model handler not initialized", "service_unavailable", 503), status_code=503)
     
     try:
-        # Use handler's id as cache key
-        handler_id = id(handler)
-        
-        # Check cache first for instant response
-        if handler_id in _models_cache:
-            return _models_cache[handler_id]
-        
-        # Call get_models() directly - it's a simple memory operation
-        models_data = handler.get_models()
-        response = ModelsResponse(data=[Model(**model) for model in models_data])
-        
-        # Cache the response for subsequent calls
-        _models_cache[handler_id] = response
-        
-        return response
+        models_data = await handler.get_models()
+        return ModelsResponse(data=[Model(**model) for model in models_data])
     except Exception as e:
         logger.error(f"Error retrieving models: {str(e)}")
-        return JSONResponse(
-            content=create_error_response(f"Failed to retrieve models: {str(e)}", "server_error", 500),
-            status_code=500
-        )
+        return JSONResponse(content=create_error_response(f"Failed to retrieve models: {str(e)}", "server_error", 500), status_code=500)
 
 @router.get("/v1/queue/stats")
 async def queue_stats(raw_request: Request):
