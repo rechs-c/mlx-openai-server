@@ -194,12 +194,13 @@ class MLXVLMHandler:
                 "tool_calls": None,
                 "content": None
             }
+            response_text = response.text
                             
             if thinking_parser:
-                thinking_response, response_text = thinking_parser.parse(response.text)
+                thinking_response, response_text = thinking_parser.parse(response_text)
                 parsed_response["reasoning_content"] = thinking_response
             if tool_parser:
-                tool_response, response_text = tool_parser.parse(response.text)
+                tool_response, response_text = tool_parser.parse(response_text)
                 parsed_response["tool_calls"] = tool_response
             parsed_response["content"] = response_text
             
