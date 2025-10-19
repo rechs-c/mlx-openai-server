@@ -14,7 +14,7 @@ setup(
     packages=find_packages(), 
     install_requires=[
         "mlx-vlm==0.3.4",
-        "mlx-lm==0.28.2",
+        "mlx-lm==0.28.3",
         "torchvision==0.23.0",
         "mlx-whisper==0.4.3",
         "mlx-embeddings==0.0.4",
