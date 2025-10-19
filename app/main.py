@@ -16,7 +16,7 @@ from app.handler.mlx_lm import MLXLMHandler
 from app.handler.mlx_embeddings import MLXEmbeddingsHandler
 from app.handler.mlx_whisper import MLXWhisperHandler
 from app.handler import MLXFluxHandler, MFLUX_AVAILABLE 
-from app.api.endpoints import router
+from app.api.endpoints import router, populate_models_cache
 from app.version import __version__
 
 def configure_logging(log_file=None, no_log_file=False, log_level="INFO"):
@@ -143,6 +143,9 @@ def create_lifespan(config_args):
             })
             logger.info("MLX handler initialized successfully")
             app.state.handler = handler
+            
+            # Pre-populate models cache for instant /v1/models responses
+            populate_models_cache(handler)
         except Exception as e:
             logger.error(f"Failed to initialize MLX handler: {str(e)}")
             raise
