@@ -305,7 +305,7 @@ class MLXVLMHandler:
             # Extract request parameters
             images = request_data.get("images", [])
             audios = request_data.get("audios", [])
-            videos = request_data.get("videos", None)
+            videos = request_data.get("videos", [])
             messages = request_data.get("messages", [])
             stream = request_data.get("stream", False)
          
@@ -449,8 +449,7 @@ class MLXVLMHandler:
                                 videos.append(formatted_content_part["path"])
 
                             formatted_content_parts.append(formatted_content_part["content_part"])
-                            chat_messages.append({"role": "user", "content": formatted_content_parts})
-
+                        chat_messages.append({"role": "user", "content": formatted_content_parts})
                     else:
                         content = create_error_response("Invalid message content format", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                         raise HTTPException(status_code=400, detail=content)
