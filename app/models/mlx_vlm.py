@@ -1,15 +1,15 @@
-import gc
+import os
 import mlx.core as mx
+from typing import List, Dict, Union, Generator
 from mlx_vlm.models.cache import make_prompt_cache
-from mlx_vlm.prompt_utils import apply_chat_template
-from typing import List, Dict, Union, Generator, Optional
-from mlx_vlm import load, generate, stream_generate, prepare_inputs
+from mlx_vlm import load, generate, stream_generate
+from mlx_vlm.video_generate import process_vision_info
 
 # Default model parameters
-DEFAULT_MAX_TOKENS = 256
-DEFAULT_TEMPERATURE = 0.0
-DEFAULT_TOP_P = 1.0
-DEFAULT_SEED = 0
+DEFAULT_MAX_TOKENS = os.getenv("DEFAULT_MAX_TOKENS", 8192)
+DEFAULT_TEMPERATURE = os.getenv("DEFAULT_TEMPERATURE", 0.0)
+DEFAULT_TOP_P = os.getenv("DEFAULT_TOP_P", 1.0)
+DEFAULT_SEED = os.getenv("DEFAULT_SEED", 0)
 
 class MLX_VLM:
     """
@@ -35,12 +35,21 @@ class MLX_VLM:
             self.config = self.model.config
         except Exception as e:
             raise ValueError(f"Error loading model: {str(e)}")
-        
+
+    def _is_video_model(self):
+        return hasattr(self.config, "video_token_id") or hasattr(
+            self.config, "video_token_index"
+        )
+
+    def get_model_type(self):
+        return self.config.model_type
+
     def __call__(
         self, 
         messages: List[Dict[str, str]], 
         images: List[str] = None,
         audios: List[str] = None,
+        videos: List[str] = None,
         stream: bool = False, 
         **kwargs
     ) -> Union[str, Generator[str, None, None]]:
@@ -51,219 +60,119 @@ class MLX_VLM:
             images (List[str]): List of image paths to process.
             messages (List[Dict[str, str]]): List of message dictionaries with 'role' and 'content' keys.
             stream (bool, optional): Whether to stream the response. Defaults to False.
-            **kwargs: Additional model parameters (temperature, max_tokens, etc.)
+            **kwargs: Additional model parameters (chat_template_kwargs, temperature, max_tokens, etc.)
             
         Returns:
             Union[str, Generator[str, None, None]]: 
                 - If stream=False: Complete response as string
                 - If stream=True: Generator yielding response chunks
         """
-        if not images:
-            images = None
-        if not audios:
-            audios = None
 
-        # Prepare the prompt using the chat template
-        formatted_prompt = apply_chat_template(
-            self.processor, 
-            self.config, 
-            messages, 
+        if images and videos:
+            raise ValueError("Cannot process both images and videos in the same request")
+
+        if videos and not self._is_video_model():
+            raise ValueError("Model is not a video model")
+
+        text = self.processor.apply_chat_template(
+            messages,
+            tokenize=False,
             add_generation_prompt=True,
-            num_images=len(images) if images else 0,
-            num_audios = len(audios) if audios else 0
-        )      
+            **kwargs.get("chat_template_kwargs", {})
+        )
+        
+        image_inputs, video_inputs = process_vision_info(messages)
 
-        # Set default parameters if not provided
+        inputs = self.processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt"
+        )
+
         model_params = {
-            "temperature": kwargs.get("temperature", DEFAULT_TEMPERATURE),
-            "max_tokens": kwargs.get("max_tokens", DEFAULT_MAX_TOKENS),
+            "input_ids": mx.array(inputs["input_ids"]),
+            "mask": mx.array(inputs["attention_mask"]),
             **kwargs
         }
 
+        if images:
+            model_params["pixel_values"] = mx.array(inputs["pixel_values"])
+            model_params["image_grid_thw"] = mx.array(inputs["image_grid_thw"])
+
+        if videos:
+            model_params["pixel_values"] = mx.array(inputs["pixel_values_videos"])
+            model_params["video_grid_thw"] = mx.array(inputs["video_grid_thw"])
+
         prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
-        
-        if not stream:
-            # Non-streaming mode: return complete response
-            result = generate(
-                self.model,
-                self.processor,
-                formatted_prompt,
-                image=images,
-                audio=audios,
-                prompt_cache=prompt_cache,
-                **model_params
-            )
-            return result.text
-        else:
-            # Streaming mode: return generator of chunks
+
+        if stream:
             return stream_generate(
                 self.model,
                 self.processor,
-                formatted_prompt,
-                image=images,
-                audio=audios,
+                prompt=text,
                 prompt_cache=prompt_cache,
                 **model_params
             )
-        
-    def get_embeddings(
-        self,
-        prompts: List[str],
-        images: Optional[List[str]] = None,
-        batch_size: int = 1,
-        normalize: bool = True
-    ) -> List[List[float]]:
-        """
-        Get embeddings for a list of prompts and optional images, supporting batch processing.
-        Args:
-            prompts: List of text prompts
-            images: Optional list of image paths (must be same length as prompts if provided)
-            batch_size: Size of batches for processing
-            normalize: Whether to apply L2 normalization to embeddings
-        Returns:
-            List of embeddings as float arrays
-        """
-        if images is None:
-            images = []
+        else:
+            return generate(
+                self.model,
+                self.processor,
+                prompt=text,
+                prompt_cache=prompt_cache,
+                **model_params
+            )
 
-        try:
-            # Text-only batch
-            if not images:
-                # Batch tokenize and pad
-                tokenized = [self.processor.tokenizer.encode(self._format_prompt(p, 0), add_special_tokens=True) for p in prompts]
-                max_len = max(len(t) for t in tokenized)
-                pad_id = self.processor.tokenizer.pad_token_id or self.processor.tokenizer.eos_token_id
-                batch_input_ids = [t + [pad_id] * (max_len - len(t)) for t in tokenized]
-                batch_input_ids = mx.array(batch_input_ids)
 
-                # Run in batches
-                all_embeddings = []
-                try:
-                    for i in range(0, len(prompts), batch_size):
-                        batch_ids = batch_input_ids[i:i+batch_size]
-                        embeddings = self.model.language_model.model(batch_ids)
-                        pooled = self._apply_pooling_strategy(embeddings)
-                        if normalize:
-                            pooled = self._apply_l2_normalization(pooled)
-                        all_embeddings.extend(pooled.tolist())
-                        
-                        # Clean up intermediate arrays
-                        del embeddings, pooled
-                        mx.clear_cache()
-                        
-                finally:
-                    # Clean up batch arrays
-                    del batch_input_ids
-                    mx.clear_cache()
-                    gc.collect()
-                    
-                return all_embeddings
+if __name__ == "__main__":
+    image_path = "examples/images/attention.png"
+    video_path = "examples/videos/demo.mp4"
+    model_path = "mlx-community/GLM-4.5V-4bit"
+    
+    model = MLX_VLM(model_path)
+    print("MODEL TYPE: ", model.get_model_type())
 
-            # Image+prompt batch
-            if len(images) != len(prompts):
-                raise ValueError("If images are provided, must be same length as prompts (one image per prompt)")
-
-            all_embeddings = []
-            for i in range(0, len(prompts), batch_size):
-                batch_prompts = prompts[i:i+batch_size]
-                batch_images = images[i:i+batch_size]
-                formatted_prompts = [self._format_prompt(p, 1) for p in batch_prompts]
-                
-                try:
-                    inputs = prepare_inputs(
-                        self.processor,
-                        batch_images,
-                        formatted_prompts,
-                        getattr(self.model.config, "image_token_index", None)
-                    )
-                    input_ids = inputs["input_ids"]
-                    pixel_values = inputs.get("pixel_values", None)
-                    image_grid_thw = inputs.get("image_grid_thw", None)
-                    inputs_embeds = self.model.get_input_embeddings(input_ids, pixel_values, image_grid_thw)
-                    embeddings = self.model.language_model.model(None, inputs_embeds=inputs_embeds)
-                    pooled = self._apply_pooling_strategy(embeddings)
-                    if normalize:
-                        pooled = self._apply_l2_normalization(pooled)
-                    all_embeddings.extend(pooled.tolist())
-                finally:
-                    # Clean up batch variables
-                    if 'inputs' in locals():
-                        del inputs
-                    if 'input_ids' in locals():
-                        del input_ids
-                    if 'pixel_values' in locals():
-                        del pixel_values
-                    if 'image_grid_thw' in locals():
-                        del image_grid_thw
-                    if 'inputs_embeds' in locals():
-                        del inputs_embeds
-                    if 'embeddings' in locals():
-                        del embeddings
-                    if 'pooled' in locals():
-                        del pooled
-                    mx.clear_cache()
-                    gc.collect()
-                    
-            return all_embeddings
-        except Exception as e:
-            # Clean up on error
-            mx.clear_cache()
-            gc.collect()
-            raise
-
-    def _format_prompt(self, prompt: str, n_images: int) -> str:
-        """Format a single prompt using the chat template."""
-        return apply_chat_template(
-            self.processor,
-            self.config,
-            prompt,
-            add_generation_prompt=True,
-            num_images=n_images
-        )
-
-    def _prepare_single_input(self, formatted_prompt: str, images: List[str]) -> Dict:
-        """Prepare inputs for a single prompt-image pair."""
-        return prepare_inputs(
-            self.processor,
-            images,
-            formatted_prompt,
-            getattr(self.model.config, "image_token_index", None)
-        )
-
-    def _get_single_embedding(
-        self,
-        inputs: Dict,
-        normalize: bool = True
-    ) -> List[float]:
-        """Get embedding for a single processed input."""
-        input_ids = inputs["input_ids"]
-        pixel_values = inputs.get("pixel_values", None)
-        
-        # Extract additional kwargs
-        data_kwargs = {
-            k: v for k, v in inputs.items()
-            if k not in ["input_ids", "pixel_values", "attention_mask"]
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the weather for a given city",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "The city to get the weather for"}
+                }
+            },
+            "required": ["city"]
+        }}   
+    ]
+    kwargs = {
+        "chat_template_kwargs": {
+            "tools": tools,
+            "enable_thinking": True,
+        },
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "seed": 0,
+        "max_tokens": 8192,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0
+    }
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Describe the video in detail"
+                },
+                {
+                    "type": "image",
+                    "image": image_path
+                }
+            ]
         }
-        image_grid_thw = data_kwargs.pop("image_grid_thw", None)
-        
-        inputs_embeds = self.model.get_input_embeddings(input_ids, pixel_values, image_grid_thw)
-        embeddings = self.model.language_model.model(None, inputs_embeds=inputs_embeds)
-        
-        # Apply pooling
-        pooled_embedding = self._apply_pooling_strategy(embeddings)
-        
-        # Apply normalization if requested
-        if normalize:
-            pooled_embedding = self._apply_l2_normalization(pooled_embedding)
-        
-        return pooled_embedding.tolist()
-   
-    def _apply_pooling_strategy(self, embeddings: mx.array) -> mx.array:
-        """Apply mean pooling to embeddings."""
-        return mx.mean(embeddings, axis=1)
-
-    def _apply_l2_normalization(self, embeddings: mx.array) -> mx.array:
-        """Apply L2 normalization to embeddings."""
-        l2_norms = mx.linalg.norm(embeddings, axis=1, keepdims=True)
-        embeddings = embeddings / (l2_norms + 1e-8)
-        return embeddings
+    ]
+    response = model(messages, stream=False, **kwargs)
+    print(response)

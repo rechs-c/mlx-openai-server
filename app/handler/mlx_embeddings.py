@@ -35,16 +35,20 @@ class MLXEmbeddingsHandler:
 
         logger.info(f"Initialized MLXEmbeddingsHandler with model path: {model_path}")
     
-    def get_models(self) -> List[Dict[str, Any]]:
+    async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get list of available models with their metadata.
         """
-        return [{
-            "id": self.model_path,
-            "object": "model",
-            "created": self.model_created,
-            "owned_by": "local"
-        }]
+        try:
+            return [{
+                "id": self.model_path,
+                "object": "model",
+                "created": self.model_created,
+                "owned_by": "local" 
+            }]
+        except Exception as e:
+            logger.error(f"Error getting models: {str(e)}")
+            return []
 
     async def initialize(self, config: Dict[str, Any]):
         """

@@ -19,6 +19,7 @@ setup(
         "mlx-whisper==0.4.3",
         "mlx-embeddings @ file:///var/ai/mlx-openai-server/mlx-embeddings",
         "fastapi==0.115.14",
+        "av==16.0.1",
         "uvicorn==0.35.0",
         "Pillow==10.4.0",
         "click==8.2.1",
@@ -26,6 +27,7 @@ setup(
         "outlines==1.1.1",
         "librosa==0.11.0",
         "openai-harmony==0.0.4",
+        "json_repair==0.52.1",
         "python-multipart==0.0.20"
     ],
     extras_require={

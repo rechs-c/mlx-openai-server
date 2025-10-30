@@ -1,16 +1,8 @@
-import asyncio
-import base64
-import hashlib
 import os
-import tempfile
-import aiohttp
-import time
 import gc
-from loguru import logger
-from io import BytesIO
-from typing import List, Optional, Dict, Union, Tuple
-from concurrent.futures import ThreadPoolExecutor
-from .base_processor import BaseProcessor
+import asyncio
+from typing import List
+from app.core.base_processor import BaseProcessor
 
 
 class AudioProcessor(BaseProcessor):

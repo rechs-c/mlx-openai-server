@@ -143,6 +143,7 @@ def create_lifespan(config_args):
             })
             logger.info("MLX handler initialized successfully")
             app.state.handler = handler
+            
         except Exception as e:
             logger.error(f"Failed to initialize MLX handler: {str(e)}")
             raise
