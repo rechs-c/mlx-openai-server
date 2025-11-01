@@ -2,7 +2,6 @@ import json
 from json_repair import repair_json
 from typing import Any, Dict, List, Optional, Tuple
 
-
 class BaseThinkingParser:
     def __init__(self, thinking_open: str, thinking_close: str):
         self.thinking_open = thinking_open
@@ -55,6 +54,25 @@ class BaseToolParser:
     
     def get_tool_close(self):
         return self.tool_close
+
+    def _parse_tool_content(self, tool_content: str) -> Optional[Dict[str, Any]]:
+        """
+        Parses the content of a tool call. Subclasses can override this method
+        to support different content formats (e.g., XML, YAML).
+
+        Args:
+            tool_content: The string content extracted from between the tool tags.
+
+        Returns:
+            A dictionary representing the parsed tool call, or None if parsing fails.
+        """
+
+        try:
+            repaired_json = repair_json(tool_content)
+            return json.loads(repaired_json)
+        except json.JSONDecodeError:
+            raise
+
     
     def parse(self, content: str) -> Tuple[Optional[List[Dict[str, Any]]], str]:
         tool_calls = []
@@ -71,11 +89,9 @@ class BaseToolParser:
             tool_content = content[start_tool + len(self.tool_open):end_tool].strip()
 
             try:
-                repaired_json = repair_json(tool_content)
-                json_output = json.loads(repaired_json)  
+                json_output = self._parse_tool_content(tool_content)
                 tool_calls.append(json_output)
             except json.JSONDecodeError:
-                print("Error parsing tool call: ", tool_content)
                 break
             content = content[end_tool + len(self.tool_close):].strip()
         return tool_calls, remaining_content
@@ -100,10 +116,8 @@ class BaseToolParser:
                 self.buffer = chunk[start_tool_index + len(self.tool_open):end_tool_index]
                 self.state = ParseToolState.NORMAL
                 try:
-                    repaired_json = repair_json(self.buffer)
-                    json_output = json.loads(repaired_json)
+                    json_output = self._parse_tool_content(self.buffer)
                 except json.JSONDecodeError:
-                    print("Error parsing tool call: ", self.buffer)
                     return None, True
                 return {
                     "name": json_output["name"],
@@ -119,10 +133,8 @@ class BaseToolParser:
             if end_tool_index != -1:
                 self.buffer += chunk[:end_tool_index]
                 try:
-                    repaired_json = repair_json(self.buffer)
-                    json_output = json.loads(repaired_json)
+                    json_output = self._parse_tool_content(self.buffer)
                 except json.JSONDecodeError:
-                    print("Error parsing tool call: ", self.buffer)
                     return None, False
                 return {
                     "name": json_output["name"],

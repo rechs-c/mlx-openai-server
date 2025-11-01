@@ -24,7 +24,7 @@ setup(
         "Pillow==10.4.0",
         "click==8.2.1",
         "loguru==0.7.3",
-        "outlines==1.1.1",
+        "outlines",
         "librosa==0.11.0",
         "openai-harmony==0.0.4",
         "json_repair==0.52.1",
@@ -49,4 +49,4 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-) 
+)

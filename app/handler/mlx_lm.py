@@ -8,12 +8,12 @@ from loguru import logger
 from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
 from app.handler.parser import (
-    Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoEThinkingParser, Glm4MoEToolParser   
+    Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoEThinkingParser, Glm4MoEToolParser
 )
+from app.handler.converter.glm4_message_converter import GLM4MessageConverter
 from app.utils.errors import create_error_response
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from app.schemas.openai import ChatCompletionRequest, EmbeddingRequest
-
 
 class MLXLMHandler:
     """
@@ -36,6 +36,9 @@ class MLXLMHandler:
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
+        
+        # Initialize GLM4 message converter if needed
+        self.glm4_converter = GLM4MessageConverter() if self.model_type == "glm4_moe" else None
 
         logger.info(f"Initialized MLXHandler with model path: {model_path}")
     
@@ -51,8 +54,8 @@ class MLXLMHandler:
         thinking_parser = None
         tool_parser = None
         
-        if self.model_type == "qwen3":
-            thinking_parser = Qwen3ThinkingParser()
+        if self.model_type.startswith("qwen3"):
+            thinking_parser = Qwen3ThinkingParser() if enable_thinking else None
             tool_parser = Qwen3ToolParser() if tools else None
         elif self.model_type == "glm4_moe":
             thinking_parser = Glm4MoEThinkingParser() if enable_thinking else None
@@ -269,10 +272,16 @@ class MLXLMHandler:
             model_params.pop("messages", None)
             model_params.pop("stream", None)
 
-            # Reformat messages
-            refined_messages = []
-            for message in messages:
-                refined_messages.append({k: v for k, v in message.items() if v is not None})
+            # Apply GLM4 message conversion if needed
+            if self.model_type == "glm4_moe" and self.glm4_converter:
+                refined_messages = self.glm4_converter.convert_messages(messages)
+            else:
+                # Process messages for non-GLM4 models
+                refined_messages = []
+                for message in messages:
+                    # Filter out None values
+                    cleaned_message = {k: v for k, v in message.items() if v is not None}
+                    refined_messages.append(cleaned_message)
 
             # Call the model
             response = self.model(
