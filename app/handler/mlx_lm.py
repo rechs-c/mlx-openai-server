@@ -56,7 +56,7 @@ class MLXLMHandler:
         thinking_parser = None
         tool_parser = None
 
-        print("DEBUG: Creating parsers for model type:", self.model_type, "with tools:", bool(tools), "and enable_thinking:", enable_thinking)  # DEBUG
+        # print("DEBUG: Creating parsers for model type:", self.model_type, "with tools:", bool(tools), "and enable_thinking:", enable_thinking)  # DEBUG
         
         if self.model_type.startswith("qwen3"):
             thinking_parser = Qwen3ThinkingParser() if enable_thinking else None
