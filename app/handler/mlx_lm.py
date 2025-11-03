@@ -8,9 +8,7 @@ from loguru import logger
 from app.models.mlx_lm import MLX_LM
 from app.core.queue import RequestQueue
 from app.handler.parser import (
-    Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoEThinkingParser, Glm4MoEToolParser, MinimaxThinkingParser, MinimaxToolParser
-)
-from app.handler.converter import (
+    Qwen3ThinkingParser, Qwen3ToolParser, HarmonyParser, Glm4MoEThinkingParser, Glm4MoEToolParser, MinimaxThinkingParser, MinimaxToolParser,
     BaseMessageConverter, Glm4MoEMessageConverter, MiniMaxMessageConverter
 )
 from app.utils.errors import create_error_response
@@ -38,7 +36,7 @@ class MLXLMHandler:
         
         # Initialize request queue for text tasks
         self.request_queue = RequestQueue(max_concurrency=max_concurrency)
-        
+
         # Initialize message converter for supported models
         self.converter = self._create_converter()
 
@@ -296,7 +294,7 @@ class MLXLMHandler:
             if self.converter:
                 refined_messages = self.converter.convert_messages(messages)
             else:
-                # Process messages for models without conversion needs
+                # Reformat messages for models without conversion needs
                 refined_messages = []
                 for message in messages:
                     # Filter out None values

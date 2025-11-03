@@ -1,8 +1,7 @@
 import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from app.handler.parser.base import BaseToolParser, BaseThinkingParser
-from loguru import logger # Import logger
+from app.handler.parser.base import BaseToolParser, BaseThinkingParser, BaseMessageConverter
 
 TOOL_OPEN = "<tool_call>"
 TOOL_CLOSE = "</tool_call>"
@@ -82,5 +81,15 @@ class Glm4MoEToolParser(BaseToolParser):
                 "arguments": arguments
             }
         except Exception as e:
-            logger.error(f"Error parsing GLM4 tool call content: {tool_content}, Error: {e}")
+            print(f"Error parsing GLM4 tool call content: {tool_content}, Error: {e}")
             return None
+
+class Glm4MoEMessageConverter(BaseMessageConverter):
+    """GLM4 MoE-specific message format converter"""
+
+    def _parse_arguments_string(self, arguments_str: str) -> Any:
+        """Parse GLM4 MoE-specific argument string format"""
+        try:
+            return json.loads(arguments_str)
+        except json.JSONDecodeError:
+            return arguments_str
